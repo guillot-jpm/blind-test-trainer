@@ -7,6 +7,8 @@ from the config.ini file.
 
 import configparser
 import os
+import shutil
+import sys
 
 # Initialize a ConfigParser object
 config = configparser.ConfigParser()
@@ -18,12 +20,18 @@ def load_config():
     # Assuming the script is run from the project root, or the CWD is the project root.
     # A more robust solution might involve finding the project root dynamically.
     config_path = 'config.ini'
-    if os.path.exists(config_path):
-        config.read(config_path)
-    else:
-        # A simple way to handle missing config: raise an error.
-        # Alternatively, you could log a warning and use default values.
-        raise FileNotFoundError(f"Configuration file not found at: {os.path.abspath(config_path)}")
+    if not os.path.exists(config_path):
+        template_path = 'config.ini.template'
+        if not os.path.exists(template_path):
+            raise FileNotFoundError(f"Critical error: '{config_path}' and '{template_path}' not found.")
+
+        shutil.copy(template_path, config_path)
+        print("INFO: 'config.ini' not found. A new one has been created for you.")
+        print("Please edit 'config.ini' with the correct path to your music folder and then restart the application.")
+        sys.exit()
+
+    config.read(config_path)
+
 
 # Load the configuration when the module is first imported.
 load_config()
