@@ -1,0 +1,15 @@
+# Configuration file for the Blind Test Training Application.
+# To use, copy this file to "config.ini" and edit the values.
+
+[Paths]
+# IMPORTANT: Use absolute paths to avoid issues.
+# Example: /home/user/Music or C:/Users/User/Music
+music_folder = /path/to/my/music
+
+# The location of the application's database file.
+# This will be created automatically if it doesn't exist.
+database_file = quiz_library.db
+
+[Settings]
+# The duration of the audio snippet played during a quiz, in seconds.
+snippet_duration_seconds = 15
