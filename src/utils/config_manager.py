@@ -8,17 +8,15 @@ from the config.ini file.
 import configparser
 import os
 import shutil
-import sys
 
 # Initialize a ConfigParser object
 config = configparser.ConfigParser()
 
 def load_config():
     """
-    Loads configuration from config.ini located in the project root.
+    Loads configuration from config.ini. If it doesn't exist, creates it from
+    the template and returns True. Otherwise, loads the config and returns False.
     """
-    # Assuming the script is run from the project root, or the CWD is the project root.
-    # A more robust solution might involve finding the project root dynamically.
     config_path = 'config.ini'
     if not os.path.exists(config_path):
         template_path = 'config.ini.template'
@@ -26,15 +24,15 @@ def load_config():
             raise FileNotFoundError(f"Critical error: '{config_path}' and '{template_path}' not found.")
 
         shutil.copy(template_path, config_path)
-        print("INFO: 'config.ini' not found. A new one has been created for you.")
-        print("Please edit 'config.ini' with the correct path to your music folder and then restart the application.")
-        sys.exit()
+        config.read(config_path)
+        return True
 
     config.read(config_path)
+    return False
 
 
-# Load the configuration when the module is first imported.
-load_config()
+# Configuration is no longer loaded on module import.
+# It must be explicitly loaded by the application's main entry point.
 
 # For easy access to integer values, we can create a helper or modify the structure.
 # The acceptance criteria asks for getint() to be used, which happens at the point of access.
