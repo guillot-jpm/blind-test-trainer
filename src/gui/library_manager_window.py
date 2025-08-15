@@ -1,15 +1,11 @@
-from PyQt6.QtWidgets import QWidget, QLabel
+import tkinter as tk
 
-class LibraryManagerWindow(QWidget):
+def create_library_manager_window(parent):
     """
-    This class represents the Library Manager window.
+    Creates the Library Manager window.
     """
-    def __init__(self):
-        """
-        Initializes the Library Manager window.
-        """
-        super().__init__()
-        self.setWindowTitle("Library Manager")
-        self.resize(400, 300)
-        label = QLabel("This is the Library Manager Window", self)
-        label.move(100, 130)
+    window = tk.Toplevel(parent)
+    window.title("Library Manager")
+    window.geometry("400x300")
+    label = tk.Label(window, text="This is the Library Manager Window")
+    label.pack(pady=20)

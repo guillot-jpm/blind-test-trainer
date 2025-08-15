@@ -1,7 +1,7 @@
-from PyQt6.QtWidgets import QWidget, QPushButton, QVBoxLayout
-from src.gui.library_manager_window import LibraryManagerWindow
+import tkinter as tk
+from src.gui.library_manager_window import create_library_manager_window
 
-class MainWindow(QWidget):
+class MainWindow(tk.Tk):
     """
     This class represents the Main window.
     """
@@ -10,23 +10,18 @@ class MainWindow(QWidget):
         Initializes the Main window.
         """
         super().__init__()
-        self.setWindowTitle("Main Window")
-        self.resize(400, 300)
+        self.title("Main Window")
+        self.geometry("400x300")
 
-        self.library_manager_window = None
-
-        layout = QVBoxLayout()
-
-        self.launch_button = QPushButton("Launch Library Manager")
-        self.launch_button.clicked.connect(self.launch_library_manager)
-        layout.addWidget(self.launch_button)
-
-        self.setLayout(layout)
+        self.launch_button = tk.Button(
+            self,
+            text="Launch Library Manager",
+            command=self.launch_library_manager
+        )
+        self.launch_button.pack(pady=20)
 
     def launch_library_manager(self):
         """
         Launches the Library Manager window.
         """
-        if self.library_manager_window is None or not self.library_manager_window.isVisible():
-            self.library_manager_window = LibraryManagerWindow()
-            self.library_manager_window.show()
+        create_library_manager_window(self)
