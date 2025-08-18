@@ -11,12 +11,10 @@ from thefuzz import fuzz
 
 # --- Configuration ---
 
-# Set a descriptive User-Agent as required by the MusicBrainz API policy.
-# This helps them identify the application making requests.
 musicbrainzngs.set_useragent(
     "BlindTestTrainer",
     "0.1.0",
-    "https://github.com/your-username/blind-test-trainer" # Replace with your actual repo URL
+    "https://github.com/your-username/blind-test-trainer"
 )
 
 # --- Public Functions ---
@@ -24,28 +22,14 @@ musicbrainzngs.set_useragent(
 def find_best_match(title, artist):
     """
     Finds the best match for a song, prioritizing the first release.
-
-    This function first attempts to find the song's original release by
-    searching for its release group. If that fails, it falls back to a
-    general search for the recording.
-
-    Args:
-        title (str): The title of the song to search for.
-        artist (str): The artist of the song.
-
-    Returns:
-        dict: A dictionary containing the metadata of the best match,
-              or None if no suitable match is found.
     """
     print(f"Attempting to find first release for '{title}' by '{artist}'...")
-    # 1. First, try the precise method by searching for the release group.
     result = _find_match_by_release_group(title, artist)
 
     if result:
         print("Found match via release group (first release).")
         return result
 
-    # 2. If the first method fails, fall back to the broader recording search.
     print("Could not find release group. Falling back to recording search...")
     result = _find_match_by_recording(title, artist)
 
@@ -64,6 +48,7 @@ def _find_match_by_release_group(title, artist):
     Finds a song's first release by searching for its release group.
     """
     try:
+        # Use 'artist' and 'releasegroup' fields for a targeted search
         result = musicbrainzngs.search_release_groups(
             query=f"artist:\"{artist}\" releasegroup:\"{title}\"", limit=5
         )
@@ -108,11 +93,32 @@ def _find_match_by_release_group(title, artist):
             earliest_release['id'], includes=['recordings', 'artists']
         )
 
-        recording = release_details['release']['medium-list'][0]['track-list'][0]['recording']
-        recording['artist-credit'] = release_details['release']['artist-credit']
-        recording['release-list'] = [earliest_release]
+        # *** FIX 1: Find the correct track instead of grabbing the first one. ***
+        best_recording_match = None
+        highest_score = 0
+        for medium in release_details['release']['medium-list']:
+            for track in medium['track-list']:
+                recording = track['recording']
+                # Compare the track title with the original query title
+                score = fuzz.ratio(title.lower(), recording['title'].lower())
+                if score > highest_score:
+                    highest_score = score
+                    best_recording_match = recording
 
-        return _format_recording(recording)
+        if not best_recording_match:
+            return None
+
+        # Add necessary context for formatting
+        best_recording_match['artist-credit-phrase'] = release_details['release']['artist-credit-phrase']
+        best_recording_match['artist-credit'] = release_details['release']['artist-credit']
+        best_recording_match['release-list'] = [earliest_release]
+
+        # Pass all relevant IDs to the formatter
+        return _format_recording(
+            best_recording_match,
+            release_id=earliest_release['id'],
+            release_group_id=rg_id
+        )
 
     except musicbrainzngs.WebServiceError as exc:
         print(f"Error connecting to MusicBrainz: {exc}")
@@ -153,13 +159,13 @@ def _find_match_by_recording(title, artist):
         print(f"Error connecting to MusicBrainz: {exc}")
         return None
 
-def _format_recording(recording):
+# *** FIX 2: Update formatter to accept and return more specific IDs. ***
+def _format_recording(recording, release_id=None, release_group_id=None):
     """
     Formats a MusicBrainz recording object into a simpler dictionary.
     """
-    artist_name = "Unknown Artist"
-    if 'artist-credit' in recording and recording['artist-credit']:
-        artist_name = recording['artist-credit'][0]['artist']['name']
+    # This now correctly uses the full artist credit phrase
+    artist_name = recording.get('artist-credit-phrase', "Unknown Artist")
 
     release_year = "Unknown Year"
     if 'release-list' in recording and recording['release-list']:
@@ -167,11 +173,18 @@ def _format_recording(recording):
         if 'date' in first_release and first_release['date']:
             release_year = first_release['date'].split('-')[0]
 
+    # The 'artist-credit' list gives better individual artist names
+    primary_artist = "Unknown Artist"
+    if 'artist-credit' in recording and recording['artist-credit']:
+        primary_artist = recording['artist-credit'][0]['artist']['name']
+
+
     return {
-        'musicbrainz_id': recording['id'],
+        'recording_id': recording['id'],
+        'release_id': release_id,
+        'release_group_id': release_group_id,
         'title': recording['title'],
-        'artist': artist_name,
+        'artist': artist_name, # Returns "Calvin Harris and Dua Lipa"
+        'primary_artist': primary_artist, # Returns "Calvin Harris"
         'release_year': release_year,
-        'genre': recording.get('genre', 'Unknown Genre'),
-        'language': recording.get('language', 'Unknown Language')
     }

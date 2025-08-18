@@ -113,10 +113,12 @@ def search_and_preview(title, artist, filename, preview_area, add_button, window
         display_text = (
             f"Title: {match['title']}\n"
             f"Artist: {match['artist']}\n"
-            f"Release Year: {match['release_year']}\n"
-            f"Genre: {match['genre']}\n"
-            f"Language: {match['language']}\n"
-            f"MusicBrainz ID: {match['musicbrainz_id']}"
+            f"Primary Artist: {match['primary_artist']}\n"
+            f"Release Year: {match['release_year']}\n\n"
+            f"--- MusicBrainz IDs ---\n"
+            f"Recording ID: {match['recording_id']}\n"
+            f"Release ID: {match['release_id']}\n"
+            f"Release Group ID: {match['release_group_id']}"
         )
 
         preview_area.config(state="normal")
@@ -147,10 +149,8 @@ def add_to_library(window, add_button, preview_area, title_entry, artist_entry, 
             title=data['title'],
             artist=data['artist'],
             release_year=data['release_year'],
-            language=data.get('language', 'N/A'),
-            genre=data.get('genre', 'N/A'),
             local_filename=data['local_filename'],
-            musicbrainz_id=data['musicbrainz_id']
+            musicbrainz_id=data['recording_id'] # Use the recording_id
         )
         messagebox.showinfo("Success", f"Song '{data['title']}' added to the library.")
 

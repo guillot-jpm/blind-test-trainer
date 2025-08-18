@@ -19,8 +19,6 @@ def test_add_and_get_song(db_connection):
         title="Test Song",
         artist="Test Artist",
         release_year=2023,
-        language="English",
-        genre="Pop",
         local_filename="test.mp3",
         musicbrainz_id="1234-5678"
     )
@@ -41,8 +39,8 @@ def test_add_and_get_song(db_connection):
 
 def test_get_all_songs(db_connection):
     """Test retrieving all songs from the library."""
-    song_library.add_song("Song 1", "Artist A", 2021, "English", "Rock", "song1.mp3")
-    song_library.add_song("Song 2", "Artist B", 2022, "Spanish", "Latin", "song2.mp3")
+    song_library.add_song("Song 1", "Artist A", 2021, "song1.mp3")
+    song_library.add_song("Song 2", "Artist B", 2022, "song2.mp3")
 
     all_songs = song_library.get_all_songs()
     assert len(all_songs) == 2
@@ -51,15 +49,15 @@ def test_get_all_songs(db_connection):
 
 def test_add_duplicate_song_filename(db_connection):
     """Test that adding a song with a duplicate filename raises an error."""
-    song_library.add_song("Song 1", "Artist A", 2021, "English", "Rock", "song1.mp3")
+    song_library.add_song("Song 1", "Artist A", 2021, "song1.mp3")
     with pytest.raises(song_library.DuplicateSongError):
-        song_library.add_song("Another Song", "Another Artist", 2023, "English", "Pop", "song1.mp3")
+        song_library.add_song("Another Song", "Another Artist", 2023, "song1.mp3")
 
 def test_add_duplicate_song_musicbrainz_id(db_connection):
     """Test that adding a song with a duplicate musicbrainz_id raises an error."""
-    song_library.add_song("Song 1", "Artist A", 2021, "English", "Rock", "song1.mp3", "unique-id-1")
+    song_library.add_song("Song 1", "Artist A", 2021, "song1.mp3", "unique-id-1")
     with pytest.raises(song_library.DuplicateSongError):
-        song_library.add_song("Song 2", "Artist B", 2022, "Spanish", "Latin", "song2.mp3", "unique-id-1")
+        song_library.add_song("Song 2", "Artist B", 2022, "song2.mp3", "unique-id-1")
 
 def test_get_nonexistent_song(db_connection):
     """Test that retrieving a non-existent song returns None."""
@@ -69,7 +67,7 @@ def test_get_nonexistent_song(db_connection):
 
 def test_get_srs_data(db_connection):
     """Test retrieving SRS data for a song."""
-    song_id = song_library.add_song("Test Song", "Test Artist", 2023, "English", "Pop", "test.mp3")
+    song_id = song_library.add_song("Test Song", "Test Artist", 2023, "test.mp3")
     srs_data = song_library.get_srs_data(song_id)
     assert srs_data is not None
     assert srs_data[0] == song_id
@@ -80,7 +78,7 @@ def test_get_srs_data(db_connection):
 
 def test_update_srs_data(db_connection):
     """Test updating SRS data for a song."""
-    song_id = song_library.add_song("Test Song", "Test Artist", 2023, "English", "Pop", "test.mp3")
+    song_id = song_library.add_song("Test Song", "Test Artist", 2023, "test.mp3")
 
     new_interval = 5
     new_ease = 2.6
@@ -98,10 +96,10 @@ def test_update_srs_data(db_connection):
 def test_get_due_songs(db_connection):
     """Test retrieving songs that are due for review."""
     # This song will be due today by default
-    song_id1 = song_library.add_song("Due Song", "Artist", 2023, "English", "Pop", "due.mp3")
+    song_id1 = song_library.add_song("Due Song", "Artist", 2023, "due.mp3")
 
     # This song will be set to be due tomorrow
-    song_id2 = song_library.add_song("Future Song", "Artist", 2023, "English", "Pop", "future.mp3")
+    song_id2 = song_library.add_song("Future Song", "Artist", 2023, "future.mp3")
     tomorrow = date.today() + timedelta(days=1)
     song_library.update_srs_data(song_id2, 1, 2.5, tomorrow)
 

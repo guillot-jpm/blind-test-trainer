@@ -33,7 +33,7 @@ def _create_srs_record(song_id, cursor):
     """, (song_id, date.today()))
 
 
-def add_song(title, artist, release_year, language, genre, local_filename, musicbrainz_id=None):
+def add_song(title, artist, release_year, local_filename, musicbrainz_id=None):
     """
     Adds a new song to the database and initializes its spaced repetition data.
 
@@ -41,10 +41,8 @@ def add_song(title, artist, release_year, language, genre, local_filename, music
         title (str): The title of the song.
         artist (str): The artist of the song.
         release_year (int): The release year of the song.
-        language (str): The language of the song.
-        genre (str): The genre of the song.
         local_filename (str): The local filename of the song file.
-        musicbrainz_id (str, optional): The MusicBrainz ID of the song. Defaults to None.
+        musicbrainz_id (str, optional): The MusicBrainz Recording ID. Defaults to None.
 
     Returns:
         int: The song_id of the newly added song.
@@ -55,9 +53,9 @@ def add_song(title, artist, release_year, language, genre, local_filename, music
     try:
         cursor = get_cursor()
         cursor.execute("""
-            INSERT INTO songs (title, artist, release_year, language, genre, local_filename, musicbrainz_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (title, artist, release_year, language, genre, local_filename, musicbrainz_id))
+            INSERT INTO songs (title, artist, release_year, local_filename, musicbrainz_id)
+            VALUES (?, ?, ?, ?, ?)
+        """, (title, artist, release_year, local_filename, musicbrainz_id))
 
         song_id = cursor.lastrowid
 
