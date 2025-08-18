@@ -98,15 +98,21 @@ def _find_match_by_release_group(title, artist):
 
         # *** FIX 1: Find the correct track instead of grabbing the first one. ***
         best_recording_match = None
-        highest_score = 0
+        highest_score = -1
         for medium in release_details['release']['medium-list']:
             for track in medium['track-list']:
                 recording = track['recording']
                 # Compare the track title with the original query title
                 score = fuzz.ratio(title.lower(), recording['title'].lower())
+
                 if score > highest_score:
                     highest_score = score
                     best_recording_match = recording
+                elif score == highest_score:
+                    # Tie-breaker: prefer shorter title.
+                    # This check is safe because best_recording_match will not be None.
+                    if len(recording['title']) < len(best_recording_match['title']):
+                        best_recording_match = recording
 
         if not best_recording_match:
             return None
