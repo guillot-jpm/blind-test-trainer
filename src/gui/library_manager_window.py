@@ -1,5 +1,10 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
+import os
+from src.services import musicbrainz_service
+from src.utils.config_manager import config
+from src.data.song_library import add_song, DuplicateSongError
+
 
 def create_library_manager_window(parent):
     """
@@ -36,10 +41,33 @@ def create_library_manager_window(parent):
     button_frame = ttk.Frame(main_frame)
     button_frame.grid(row=3, column=0, columnspan=2, pady=10, sticky=tk.E)
 
-    search_button = ttk.Button(button_frame, text="Search & Preview")
+    search_button = ttk.Button(
+        button_frame,
+        text="Search & Preview",
+        command=lambda: search_and_preview(
+            song_title_entry.get(),
+            artist_entry.get(),
+            local_filename_entry.get(),
+            preview_area,
+            add_button,
+            window
+        )
+    )
     search_button.pack(side=tk.LEFT, padx=5)
 
-    add_button = ttk.Button(button_frame, text="Add to Library", state="disabled")
+    add_button = ttk.Button(
+        button_frame,
+        text="Add to Library",
+        state="disabled",
+        command=lambda: add_to_library(
+            window,
+            add_button,
+            preview_area,
+            song_title_entry,
+            artist_entry,
+            local_filename_entry
+        )
+    )
     add_button.pack(side=tk.LEFT)
 
     main_frame.columnconfigure(1, weight=1) # Makes the entry widgets expandable
@@ -52,3 +80,98 @@ def create_library_manager_window(parent):
     preview_area.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
 
     main_frame.rowconfigure(5, weight=1) # Makes the preview area expandable
+
+def search_and_preview(title, artist, filename, preview_area, add_button, window):
+    """
+    Handles the "Search & Preview" button click event.
+    """
+    # --- 1. Input Validation ---
+    if not all([title, artist, filename]):
+        messagebox.showwarning("Missing Information", "Please fill in all title, artist, and filename fields.")
+        return
+
+    # --- 2. File Existence Check ---
+    music_folder = config.get('Paths', 'music_folder')
+    file_path = os.path.join(music_folder, filename)
+
+    if not os.path.exists(file_path):
+        messagebox.showerror("File Not Found", f"The file '{filename}' was not found in the configured music folder:\n{music_folder}")
+        return
+
+    # --- 3. API Search ---
+    messagebox.showinfo("Searching", "Searching for song metadata on MusicBrainz...")
+
+    match = musicbrainz_service.find_best_match(title, artist)
+
+    # --- 4. Update Preview Area ---
+    if match:
+        # Store the full metadata in a hidden attribute for later use
+        window.preview_data = match
+        window.preview_data['local_filename'] = filename # Add filename for convenience
+
+        # Format for display
+        display_text = (
+            f"Title: {match['title']}\n"
+            f"Artist: {match['artist']}\n"
+            f"Primary Artist: {match['primary_artist']}\n"
+            f"Release Year: {match['release_year']}\n\n"
+            f"--- MusicBrainz IDs ---\n"
+            f"Recording ID: {match['recording_id']}\n"
+            f"Release ID: {match['release_id']}\n"
+            f"Release Group ID: {match['release_group_id']}"
+        )
+
+        preview_area.config(state="normal")
+        preview_area.delete("1.0", tk.END)
+        preview_area.insert("1.0", display_text)
+        preview_area.config(state="disabled")
+
+        add_button.config(state="normal") # Enable the "Add" button
+    else:
+        messagebox.showinfo("No Match Found", "Could not find a suitable match on MusicBrainz.")
+        preview_area.config(state="normal")
+        preview_area.delete("1.0", tk.END)
+        preview_area.config(state="disabled")
+        add_button.config(state="disabled")
+
+
+def add_to_library(window, add_button, preview_area, title_entry, artist_entry, filename_entry):
+    """
+    Handles the "Add to Library" button click event.
+    """
+    if not hasattr(window, 'preview_data') or not window.preview_data:
+        messagebox.showerror("Error", "No song data to add. Please search for a song first.")
+        return
+
+    data = window.preview_data
+    try:
+        add_song(
+            title=data['title'],
+            artist=data['artist'],
+            release_year=data['release_year'],
+            local_filename=data['local_filename'],
+            musicbrainz_id=data['recording_id'] # Use the recording_id
+        )
+        messagebox.showinfo("Success", f"Song '{data['title']}' added to the library.")
+
+        # --- Reset UI ---
+        # Clear entry fields
+        title_entry.delete(0, tk.END)
+        artist_entry.delete(0, tk.END)
+        filename_entry.delete(0, tk.END)
+
+        # Clear preview area
+        preview_area.config(state="normal")
+        preview_area.delete("1.0", tk.END)
+        preview_area.config(state="disabled")
+
+        # Disable "Add" button
+        add_button.config(state="disabled")
+
+        # Clear the stored data
+        del window.preview_data
+
+    except DuplicateSongError:
+        messagebox.showerror("Duplicate Song", "This song already exists in the library.")
+    except Exception as e:
+        messagebox.showerror("Database Error", f"An unexpected error occurred: {e}")
