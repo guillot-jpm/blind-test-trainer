@@ -6,7 +6,8 @@ Unit tests for the MusicBrainz service.
 
 import unittest
 from unittest.mock import patch
-from src.services.musicbrainz_service import find_best_match
+import musicbrainzngs
+from src.services.musicbrainz_service import find_best_match, MusicBrainzAPIError
 
 class TestMusicBrainzService(unittest.TestCase):
     """
@@ -116,6 +117,23 @@ class TestMusicBrainzService(unittest.TestCase):
 
         # --- Assertions ---
         self.assertIsNone(result)
+
+    @patch('musicbrainzngs.search_release_groups')
+    def test_find_best_match_api_error(self, mock_search_rg):
+        """
+        Tests that a WebServiceError is caught and re-raised as MusicBrainzAPIError.
+        """
+        # --- Setup Mock to raise an error ---
+        mock_search_rg.side_effect = musicbrainzngs.WebServiceError("Service unavailable")
+
+        # --- Call the function and assert exception ---
+        with self.assertRaises(MusicBrainzAPIError) as context:
+            find_best_match("Any Song", "Any Artist")
+
+        self.assertIn(
+            "Could not connect to MusicBrainz",
+            str(context.exception)
+        )
 
 if __name__ == '__main__':
     unittest.main()

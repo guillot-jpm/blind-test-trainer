@@ -9,6 +9,12 @@ metadata.
 import musicbrainzngs
 from thefuzz import fuzz
 
+
+class MusicBrainzAPIError(Exception):
+    """Custom exception for MusicBrainz API errors."""
+    pass
+
+
 # --- Configuration ---
 
 musicbrainzngs.set_useragent(
@@ -135,7 +141,9 @@ def _find_match_by_release_group(title, artist):
 
     except musicbrainzngs.WebServiceError as exc:
         print(f"Error connecting to MusicBrainz: {exc}")
-        return None
+        raise MusicBrainzAPIError(
+            "Could not connect to MusicBrainz. Please check your internet connection and try again."
+        ) from exc
 
 
 def _find_match_by_recording(title, artist):
@@ -173,7 +181,9 @@ def _find_match_by_recording(title, artist):
 
     except musicbrainzngs.WebServiceError as exc:
         print(f"Error connecting to MusicBrainz: {exc}")
-        return None
+        raise MusicBrainzAPIError(
+            "Could not connect to MusicBrainz. Please check your internet connection and try again."
+        ) from exc
 
 # *** FIX 2: Update formatter to accept and return more specific IDs. ***
 def _format_recording(recording, release_id=None, release_group_id=None):

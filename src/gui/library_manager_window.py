@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 import os
 from src.services import musicbrainz_service
+from src.services.musicbrainz_service import MusicBrainzAPIError
 from src.utils.config_manager import config
 from src.data.song_library import add_song, DuplicateSongError
 
@@ -112,38 +113,48 @@ def search_and_preview(title, artist, filename, preview_area, add_button, window
     preview_area.config(state="disabled")
     window.update_idletasks()  # Force the UI to update
 
-    match = musicbrainz_service.find_best_match(title, artist)
+    try:
+        match = musicbrainz_service.find_best_match(title, artist)
 
-    # --- 4. Update Preview Area ---
-    if match:
-        # Store the full metadata in a hidden attribute for later use
-        window.preview_data = match
-        window.preview_data['local_filename'] = filename # Add filename for convenience
+        # --- 4. Update Preview Area ---
+        if match:
+            # Store the full metadata in a hidden attribute for later use
+            window.preview_data = match
+            window.preview_data['local_filename'] = filename # Add filename for convenience
 
-        # Format for display
-        display_text = (
-            f"Title: {match['title']}\n"
-            f"Artist: {match['artist']}\n"
-            f"Primary Artist: {match['primary_artist']}\n"
-            f"Release Year: {match['release_year']}\n\n"
-            f"--- MusicBrainz IDs ---\n"
-            f"Recording ID: {match['recording_id']}\n"
-            f"Release ID: {match['release_id']}\n"
-            f"Release Group ID: {match['release_group_id']}"
-        )
+            # Format for display
+            display_text = (
+                f"Title: {match['title']}\n"
+                f"Artist: {match['artist']}\n"
+                f"Primary Artist: {match['primary_artist']}\n"
+                f"Release Year: {match['release_year']}\n\n"
+                f"--- MusicBrainz IDs ---\n"
+                f"Recording ID: {match['recording_id']}\n"
+                f"Release ID: {match['release_id']}\n"
+                f"Release Group ID: {match['release_group_id']}"
+            )
 
+            preview_area.config(state="normal")
+            preview_area.delete("1.0", tk.END)
+            preview_area.insert("1.0", display_text)
+            preview_area.config(state="disabled")
+
+            add_button.config(state="normal") # Enable the "Add" button
+        else:
+            # If no match is found, display a message in the preview area.
+            error_message = "No match found. Please check the title and artist."
+            preview_area.config(state="normal")
+            preview_area.delete("1.0", tk.END)
+            preview_area.insert("1.0", error_message)
+            preview_area.config(state="disabled")
+            add_button.config(state="disabled")
+
+    except MusicBrainzAPIError as e:
+        messagebox.showerror("API Connection Error", str(e))
+        # Also clear the preview area and disable the add button
         preview_area.config(state="normal")
         preview_area.delete("1.0", tk.END)
-        preview_area.insert("1.0", display_text)
-        preview_area.config(state="disabled")
-
-        add_button.config(state="normal") # Enable the "Add" button
-    else:
-        # If no match is found, display a message in the preview area.
-        error_message = "No match found. Please check the title and artist."
-        preview_area.config(state="normal")
-        preview_area.delete("1.0", tk.END)
-        preview_area.insert("1.0", error_message)
+        preview_area.insert("1.0", "API request failed.")
         preview_area.config(state="disabled")
         add_button.config(state="disabled")
 
