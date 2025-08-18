@@ -1,5 +1,7 @@
 import tkinter as tk
+from tkinter import messagebox
 from src.gui.library_manager_window import create_library_manager_window
+from src.utils.config_manager import load_config
 
 class MainWindow(tk.Tk):
     """
@@ -9,8 +11,18 @@ class MainWindow(tk.Tk):
         """
         Initializes the Main window.
         """
+        new_config_created = load_config()
+
         super().__init__()
         self.title("Main Window")
+
+        if new_config_created:
+            messagebox.showinfo(
+                "Configuration Created",
+                "Configuration file not found. A new 'config.ini' has been created for you. "
+                "Please edit this file to set your music folder path before adding songs to the library."
+            )
+
         self.geometry("400x300")
 
         self.launch_button = tk.Button(
