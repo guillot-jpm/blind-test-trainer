@@ -1,1 +1,4 @@
 pytest
+musicbrainzngs
+thefuzz
+python-levenshtein
