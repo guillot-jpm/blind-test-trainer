@@ -128,9 +128,7 @@ def search_and_preview(title, artist, filename, preview_area, add_button, window
                 f"Artist: {match['artist']}\n"
                 f"Primary Artist: {match['primary_artist']}\n"
                 f"Release Year: {match['release_year']}\n\n"
-                f"--- MusicBrainz IDs ---\n"
-                f"Recording ID: {match['recording_id']}\n"
-                f"Release ID: {match['release_id']}\n"
+                f"--- MusicBrainz ID ---\n"
                 f"Release Group ID: {match['release_group_id']}"
             )
 
@@ -174,7 +172,7 @@ def add_to_library(window, add_button, preview_area, title_entry, artist_entry, 
             artist=data['artist'],
             release_year=data['release_year'],
             local_filename=data['local_filename'],
-            musicbrainz_id=data['recording_id'] # Use the recording_id
+            musicbrainz_release_group_id=data['release_group_id']
         )
         messagebox.showinfo(
             "Success",

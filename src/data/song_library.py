@@ -33,7 +33,7 @@ def _create_srs_record(song_id, cursor):
     """, (song_id, date.today()))
 
 
-def add_song(title, artist, release_year, local_filename, musicbrainz_id=None):
+def add_song(title, artist, release_year, local_filename, musicbrainz_release_group_id=None):
     """
     Adds a new song to the database and initializes its spaced repetition data.
 
@@ -42,20 +42,20 @@ def add_song(title, artist, release_year, local_filename, musicbrainz_id=None):
         artist (str): The artist of the song.
         release_year (int): The release year of the song.
         local_filename (str): The local filename of the song file.
-        musicbrainz_id (str, optional): The MusicBrainz Recording ID. Defaults to None.
+        musicbrainz_release_group_id (str, optional): The MusicBrainz Release Group ID. Defaults to None.
 
     Returns:
         int: The song_id of the newly added song.
 
     Raises:
-        DuplicateSongError: If a song with the same local_filename or musicbrainz_id already exists.
+        DuplicateSongError: If a song with the same local_filename or MusicBrainz ID already exists.
     """
     try:
         cursor = get_cursor()
         cursor.execute("""
-            INSERT INTO songs (title, artist, release_year, local_filename, musicbrainz_id)
+            INSERT INTO songs (title, artist, release_year, local_filename, musicbrainz_release_group_id)
             VALUES (?, ?, ?, ?, ?)
-        """, (title, artist, release_year, local_filename, musicbrainz_id))
+        """, (title, artist, release_year, local_filename, musicbrainz_release_group_id))
 
         song_id = cursor.lastrowid
 

@@ -20,7 +20,7 @@ def test_add_and_get_song(db_connection):
         artist="Test Artist",
         release_year=2023,
         local_filename="test.mp3",
-        musicbrainz_id="1234-5678"
+        musicbrainz_release_group_id="1234-5678"
     )
     assert isinstance(song_id, int)
 
@@ -53,11 +53,11 @@ def test_add_duplicate_song_filename(db_connection):
     with pytest.raises(song_library.DuplicateSongError):
         song_library.add_song("Another Song", "Another Artist", 2023, "song1.mp3")
 
-def test_add_duplicate_song_musicbrainz_id(db_connection):
-    """Test that adding a song with a duplicate musicbrainz_id raises an error."""
-    song_library.add_song("Song 1", "Artist A", 2021, "song1.mp3", "unique-id-1")
+def test_add_duplicate_song_release_group_id(db_connection):
+    """Test that adding a song with a duplicate release_group_id raises an error."""
+    song_library.add_song("Song 1", "Artist A", 2021, "song1.mp3", musicbrainz_release_group_id="unique-id-1")
     with pytest.raises(song_library.DuplicateSongError):
-        song_library.add_song("Song 2", "Artist B", 2022, "song2.mp3", "unique-id-1")
+        song_library.add_song("Song 2", "Artist B", 2022, "song2.mp3", musicbrainz_release_group_id="unique-id-1")
 
 def test_get_nonexistent_song(db_connection):
     """Test that retrieving a non-existent song returns None."""
