@@ -152,7 +152,10 @@ def add_to_library(window, add_button, preview_area, title_entry, artist_entry, 
             local_filename=data['local_filename'],
             musicbrainz_id=data['recording_id'] # Use the recording_id
         )
-        messagebox.showinfo("Success", f"Song '{data['title']}' added to the library.")
+        messagebox.showinfo(
+            "Success",
+            f"'{data['title']}' by {data['artist']} has been added successfully!"
+        )
 
         # --- Reset UI ---
         # Clear entry fields
