@@ -6,10 +6,21 @@ a single, consistent connection is used throughout the application.
 """
 
 import sqlite3
+import datetime
 from src.data.schema import ALL_TABLES
 
 # This will hold the single, application-wide database connection.
 _connection = None
+
+
+def adapt_date_iso(val):
+    """Adapt datetime.date to ISO 8601 string."""
+    return val.isoformat()
+
+
+def convert_date(val):
+    """Convert ISO 8601 string to datetime.date object."""
+    return datetime.date.fromisoformat(val.decode())
 
 
 def connect(db_path):
@@ -26,9 +37,18 @@ def connect(db_path):
         return
 
     try:
+        # Register the adapter and converter for date objects
+        sqlite3.register_adapter(datetime.date, adapt_date_iso)
+        sqlite3.register_converter("date", convert_date)
+
         # Using check_same_thread=False is a common practice for SQLite in
         # multi-threaded applications, like those with a separate GUI thread.
-        _connection = sqlite3.connect(db_path, check_same_thread=False)
+        # The `detect_types` flag allows using the registered converters.
+        _connection = sqlite3.connect(
+            db_path,
+            detect_types=sqlite3.PARSE_DECLTYPES,
+            check_same_thread=False
+        )
     except sqlite3.Error as e:
         # In a real application, this should be logged to a file or a
         # dedicated logging service.
