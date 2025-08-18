@@ -24,9 +24,22 @@ CREATE TABLE IF NOT EXISTS songs (
 );
 """
 
+# SQL statement to create the 'play_history' table
+CREATE_PLAY_HISTORY_TABLE = """
+CREATE TABLE IF NOT EXISTS play_history (
+    history_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    song_id INTEGER,
+    play_timestamp DATETIME NOT NULL,
+    was_correct BOOLEAN NOT NULL,
+    reaction_time_seconds REAL,
+    FOREIGN KEY(song_id) REFERENCES songs(song_id)
+);
+"""
+
 # A list of all table creation statements
 ALL_TABLES = [
-    CREATE_SONGS_TABLE
+    CREATE_SONGS_TABLE,
+    CREATE_PLAY_HISTORY_TABLE
 ]
 
 
