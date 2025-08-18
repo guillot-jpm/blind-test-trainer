@@ -103,3 +103,27 @@ def initialize_database():
         # if the connection isn't open.
         print(f"Database initialization error: {e}")
         raise # Re-raise to let the caller know initialization failed.
+
+
+def record_play_history(song_id, was_correct, reaction_time):
+    """
+    Records the outcome of a single play instance in the play_history table.
+
+    Args:
+        song_id (int): The ID of the song that was played.
+        was_correct (bool): Whether the user's guess was correct.
+        reaction_time (float): The time in seconds it took the user to react.
+    """
+    try:
+        cursor = get_cursor()
+        cursor.execute("""
+            INSERT INTO play_history (song_id, play_timestamp, was_correct, reaction_time_seconds)
+            VALUES (?, datetime('now'), ?, ?)
+        """, (song_id, was_correct, reaction_time))
+        cursor.connection.commit()
+    except sqlite3.Error as e:
+        print(f"Failed to record play history: {e}")
+        # Depending on the application's needs, you might want to rollback,
+        # but for a single INSERT, it's less critical.
+        cursor.connection.rollback()
+        raise
