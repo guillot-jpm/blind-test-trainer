@@ -1,8 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox
 from src.gui.library_manager_window import create_library_manager_window
-from src.utils.config_manager import load_config
-from src.data.schema import initialize_database
+from src.utils.config_manager import load_config, config
+from src.data.database_manager import initialize_database
 
 class MainWindow(tk.Tk):
     """
@@ -13,7 +13,8 @@ class MainWindow(tk.Tk):
         Initializes the Main window.
         """
         new_config_created = load_config()
-        initialize_database()
+        db_path = config.get('Paths', 'database_file')
+        initialize_database(db_path)
 
         super().__init__()
         self.title("Main Window")
