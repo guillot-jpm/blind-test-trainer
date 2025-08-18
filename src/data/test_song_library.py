@@ -1,7 +1,7 @@
 # src/data/test_song_library.py
 
 import pytest
-from datetime import date
+from datetime import date, timedelta
 from src.data import database_manager
 from src.data import song_library
 
@@ -65,3 +65,56 @@ def test_get_nonexistent_song(db_connection):
     """Test that retrieving a non-existent song returns None."""
     song = song_library.get_song_by_id(999)
     assert song is None
+
+
+def test_get_srs_data(db_connection):
+    """Test retrieving SRS data for a song."""
+    song_id = song_library.add_song("Test Song", "Test Artist", 2023, "English", "Pop", "test.mp3")
+    srs_data = song_library.get_srs_data(song_id)
+    assert srs_data is not None
+    assert srs_data[0] == song_id
+    assert srs_data[1] == 1  # Default interval
+    assert srs_data[2] == 2.5  # Default ease factor
+    assert srs_data[3] == date.today()
+
+
+def test_update_srs_data(db_connection):
+    """Test updating SRS data for a song."""
+    song_id = song_library.add_song("Test Song", "Test Artist", 2023, "English", "Pop", "test.mp3")
+
+    new_interval = 5
+    new_ease = 2.6
+    new_date = date.today()
+
+    song_library.update_srs_data(song_id, new_interval, new_ease, new_date)
+
+    srs_data = song_library.get_srs_data(song_id)
+    assert srs_data is not None
+    assert srs_data[1] == new_interval
+    assert srs_data[2] == new_ease
+    assert srs_data[3] == new_date
+
+
+def test_get_due_songs(db_connection):
+    """Test retrieving songs that are due for review."""
+    # This song will be due today by default
+    song_id1 = song_library.add_song("Due Song", "Artist", 2023, "English", "Pop", "due.mp3")
+
+    # This song will be set to be due tomorrow
+    song_id2 = song_library.add_song("Future Song", "Artist", 2023, "English", "Pop", "future.mp3")
+    tomorrow = date.today() + timedelta(days=1)
+    song_library.update_srs_data(song_id2, 1, 2.5, tomorrow)
+
+    # Check that only the first song is due
+    due_songs = song_library.get_due_songs()
+    assert song_id1 in due_songs
+    assert song_id2 not in due_songs
+
+    # Update the second song to be due in the past
+    past_date = date.today() - timedelta(days=1)
+    song_library.update_srs_data(song_id2, 1, 2.5, past_date)
+
+    # Check that both songs are now due
+    due_songs = song_library.get_due_songs()
+    assert song_id1 in due_songs
+    assert song_id2 in due_songs
