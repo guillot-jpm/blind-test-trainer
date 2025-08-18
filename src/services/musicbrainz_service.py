@@ -23,7 +23,11 @@ musicbrainzngs.set_useragent(
 
 def find_best_match(title, artist):
     """
-    Searches for a song on MusicBrainz and returns the best match.
+    Finds the best match for a song, prioritizing the first release.
+
+    This function first attempts to find the song's original release by
+    searching for its release group. If that fails, it falls back to a
+    general search for the recording.
 
     Args:
         title (str): The title of the song to search for.
@@ -33,79 +37,134 @@ def find_best_match(title, artist):
         dict: A dictionary containing the metadata of the best match,
               or None if no suitable match is found.
     """
+    print(f"Attempting to find first release for '{title}' by '{artist}'...")
+    # 1. First, try the precise method by searching for the release group.
+    result = _find_match_by_release_group(title, artist)
+
+    if result:
+        print("Found match via release group (first release).")
+        return result
+
+    # 2. If the first method fails, fall back to the broader recording search.
+    print("Could not find release group. Falling back to recording search...")
+    result = _find_match_by_recording(title, artist)
+
+    if result:
+        print("Found match via recording search.")
+        return result
+
+    print("No suitable match found.")
+    return None
+
+
+# --- Private Helper Functions ---
+
+def _find_match_by_release_group(title, artist):
+    """
+    Finds a song's first release by searching for its release group.
+    """
     try:
-        # The query includes the artist and title for a more precise search.
-        # We limit the results to the top 5 to reduce processing time and
-        # API load.
-        result = musicbrainzngs.search_recordings(
-            query=f"artist:\"{artist}\" recording:\"{title}\"",
-            limit=5
+        result = musicbrainzngs.search_release_groups(
+            query=f"artist:\"{artist}\" releasegroup:\"{title}\"", limit=5
         )
 
-        if not result['recording-list']:
+        if not result['release-group-list']:
             return None
 
-        # Use "thefuzz" to find the best match from the results.
-        # We create a combined string for comparison to improve accuracy.
         query_str = f"{title.lower()} {artist.lower()}"
+        best_match_rg = max(
+            result['release-group-list'],
+            key=lambda rg: fuzz.ratio(
+                query_str,
+                f"{rg['title'].lower()} {rg['artist-credit-phrase'].lower()}"
+            )
+        )
 
-        best_match = None
-        highest_score = 0
-
-        for recording in result['recording-list']:
-            # Extract artist name from the recording data.
-            # MusicBrainz returns a list of artists.
-            api_artist = recording['artist-credit-phrase']
-            api_title = recording['title']
-
-            # Create a combined string from the API result.
-            api_str = f"{api_title.lower()} {api_artist.lower()}"
-
-            # Calculate the similarity score.
-            score = fuzz.ratio(query_str, api_str)
-
-            # If the new score is higher, update the best match.
-            if score > highest_score:
-                highest_score = score
-                best_match = recording
-
-        # If the best score is below a certain threshold, we consider it
-        # a poor match.
-        if highest_score < 70: # Threshold can be adjusted
+        score = fuzz.ratio(
+            query_str,
+            f"{best_match_rg['title'].lower()} {best_match_rg['artist-credit-phrase'].lower()}"
+        )
+        if score < 70:
             return None
 
-        # Format the result into a more usable dictionary.
-        return _format_recording(best_match)
+        rg_id = best_match_rg['id']
+        release_group = musicbrainzngs.get_release_group_by_id(
+            rg_id, includes=['releases']
+        )
+
+        releases = release_group['release-group']['release-list']
+        if not releases:
+            return None
+
+        earliest_release = min(
+            (r for r in releases if 'date' in r and r['date']),
+            key=lambda r: r['date'],
+            default=None
+        )
+        if not earliest_release:
+            return None
+
+        release_details = musicbrainzngs.get_release_by_id(
+            earliest_release['id'], includes=['recordings', 'artists']
+        )
+
+        recording = release_details['release']['medium-list'][0]['track-list'][0]['recording']
+        recording['artist-credit'] = release_details['release']['artist-credit']
+        recording['release-list'] = [earliest_release]
+
+        return _format_recording(recording)
 
     except musicbrainzngs.WebServiceError as exc:
         print(f"Error connecting to MusicBrainz: {exc}")
         return None
 
 
-# --- Private Helper Functions ---
+def _find_match_by_recording(title, artist):
+    """
+    Finds a song by directly searching for recordings.
+    """
+    try:
+        result = musicbrainzngs.search_recordings(
+            query=f"artist:\"{artist}\" recording:\"{title}\"", limit=5
+        )
+
+        if not result['recording-list']:
+            return None
+
+        query_str = f"{title.lower()} {artist.lower()}"
+        best_match = max(
+            result['recording-list'],
+            key=lambda r: fuzz.ratio(
+                query_str,
+                f"{r['title'].lower()} {r['artist-credit-phrase'].lower()}"
+            )
+        )
+
+        score = fuzz.ratio(
+            query_str,
+            f"{best_match['title'].lower()} {best_match['artist-credit-phrase'].lower()}"
+        )
+        if score < 70:
+            return None
+
+        return _format_recording(best_match)
+
+    except musicbrainzngs.WebServiceError as exc:
+        print(f"Error connecting to MusicBrainz: {exc}")
+        return None
 
 def _format_recording(recording):
     """
     Formats a MusicBrainz recording object into a simpler dictionary.
-
-    Args:
-        recording (dict): The recording object from the MusicBrainz API.
-
-    Returns:
-        dict: A dictionary containing the desired song metadata.
     """
-    # Extract the primary artist's name.
     artist_name = "Unknown Artist"
     if 'artist-credit' in recording and recording['artist-credit']:
         artist_name = recording['artist-credit'][0]['artist']['name']
 
-    # Extract the release year.
     release_year = "Unknown Year"
     if 'release-list' in recording and recording['release-list']:
-        # Releases are sorted by date, so the first one is the earliest.
         first_release = recording['release-list'][0]
         if 'date' in first_release and first_release['date']:
-            # Extract the year part from the date string (e.g., "YYYY-MM-DD").
             release_year = first_release['date'].split('-')[0]
 
     return {
