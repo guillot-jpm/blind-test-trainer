@@ -1,29 +1,85 @@
 # src/data/database_manager.py
 
 """
-This module handles database operations, including initialization
-and other database-related tasks.
+This module handles the connection to the SQLite database, ensuring that
+a single, consistent connection is used throughout the application.
 """
 
 import sqlite3
 from src.data.schema import ALL_TABLES
 
+# This will hold the single, application-wide database connection.
+_connection = None
 
-def initialize_database(db_path):
+
+def connect(db_path):
     """
-    Initializes the database by creating all necessary tables
-    if they don't already exist.
+    Establishes a connection to the SQLite database.
+
+    This function should be called once when the application starts.
+    It handles connection errors gracefully by printing an error and
+    ensuring the internal connection state is clean.
     """
-    conn = None
+    global _connection
+    if _connection is not None:
+        # Avoid creating a new connection if one already exists.
+        return
+
     try:
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
+        # Using check_same_thread=False is a common practice for SQLite in
+        # multi-threaded applications, like those with a separate GUI thread.
+        _connection = sqlite3.connect(db_path, check_same_thread=False)
+    except sqlite3.Error as e:
+        # In a real application, this should be logged to a file or a
+        # dedicated logging service.
+        print(f"Database connection error: {e}")
+        _connection = None  # Ensure connection is reset on failure.
+        raise  # Re-raise the exception to be handled by the caller.
+
+
+def disconnect():
+    """
+    Closes the database connection if it's currently open.
+
+    This function should be called when the application is shutting down
+    to ensure a clean exit.
+    """
+    global _connection
+    if _connection:
+        _connection.close()
+        _connection = None
+
+
+def get_cursor():
+    """
+    Returns a cursor from the current database connection.
+
+    Raises:
+        RuntimeError: If the database connection has not been established
+                      by calling `connect()` first.
+    """
+    if _connection is None:
+        raise RuntimeError(
+            "Database connection is not established. Call connect() first."
+        )
+    return _connection.cursor()
+
+
+def initialize_database():
+    """
+    Initializes the database by creating all necessary tables if they
+    don't already exist.
+
+    This function relies on an existing database connection, so `connect()`
+    must be called before this function is invoked.
+    """
+    try:
+        cursor = get_cursor()
         for table_query in ALL_TABLES:
             cursor.execute(table_query)
-        conn.commit()
-    except sqlite3.Error as e:
-        # In a real application, this should be logged properly.
-        print(f"Database error while initializing: {e}")
-    finally:
-        if conn:
-            conn.close()
+        _connection.commit()
+    except (sqlite3.Error, RuntimeError) as e:
+        # This will catch both SQL errors and errors from get_cursor()
+        # if the connection isn't open.
+        print(f"Database initialization error: {e}")
+        raise # Re-raise to let the caller know initialization failed.
