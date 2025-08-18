@@ -86,7 +86,11 @@ def _find_match_by_release_group(title, artist):
 
         earliest_release = min(
             (r for r in releases if 'date' in r and r['date']),
-            key=lambda r: (r['date'], len(r.get('title', ''))),  # Tie-break by title length
+            key=lambda r: (
+                0 if r.get('status') == 'Official' else 1,  # Prioritize official releases
+                r['date'],
+                len(r.get('title', ''))
+            ),
             default=None
         )
         if not earliest_release:
