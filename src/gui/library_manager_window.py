@@ -95,11 +95,22 @@ def search_and_preview(title, artist, filename, preview_area, add_button, window
     file_path = os.path.join(music_folder, filename)
 
     if not os.path.exists(file_path):
-        messagebox.showerror("File Not Found", f"The file '{filename}' was not found in the configured music folder:\n{music_folder}")
+        # If the file doesn't exist, display an error in the preview area.
+        error_message = f"Error: File '{filename}' not found in your music folder."
+        preview_area.config(state="normal")
+        preview_area.delete("1.0", tk.END)
+        preview_area.insert("1.0", error_message)
+        preview_area.config(state="disabled")
+        add_button.config(state="disabled")
         return
 
     # --- 3. API Search ---
-    messagebox.showinfo("Searching", "Searching for song metadata on MusicBrainz...")
+    # Show a temporary message while searching; this will be replaced by results or an error.
+    preview_area.config(state="normal")
+    preview_area.delete("1.0", tk.END)
+    preview_area.insert("1.0", "Searching for song metadata on MusicBrainz...")
+    preview_area.config(state="disabled")
+    window.update_idletasks()  # Force the UI to update
 
     match = musicbrainz_service.find_best_match(title, artist)
 
@@ -128,9 +139,11 @@ def search_and_preview(title, artist, filename, preview_area, add_button, window
 
         add_button.config(state="normal") # Enable the "Add" button
     else:
-        messagebox.showinfo("No Match Found", "Could not find a suitable match on MusicBrainz.")
+        # If no match is found, display a message in the preview area.
+        error_message = "No match found. Please check the title and artist."
         preview_area.config(state="normal")
         preview_area.delete("1.0", tk.END)
+        preview_area.insert("1.0", error_message)
         preview_area.config(state="disabled")
         add_button.config(state="disabled")
 

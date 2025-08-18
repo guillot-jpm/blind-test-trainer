@@ -59,9 +59,12 @@ def _find_match_by_release_group(title, artist):
         query_str = f"{title.lower()} {artist.lower()}"
         best_match_rg = max(
             result['release-group-list'],
-            key=lambda rg: fuzz.ratio(
-                query_str,
-                f"{rg['title'].lower()} {rg['artist-credit-phrase'].lower()}"
+            key=lambda rg: (
+                fuzz.ratio(
+                    query_str,
+                    f"{rg['title'].lower()} {rg['artist-credit-phrase'].lower()}"
+                ),
+                -len(rg['title'])  # Tie-breaker: shorter title is better
             )
         )
 
@@ -83,7 +86,11 @@ def _find_match_by_release_group(title, artist):
 
         earliest_release = min(
             (r for r in releases if 'date' in r and r['date']),
-            key=lambda r: r['date'],
+            key=lambda r: (
+                0 if r.get('status') == 'Official' else 1,  # Prioritize official releases
+                r['date'],
+                len(r.get('title', ''))
+            ),
             default=None
         )
         if not earliest_release:
@@ -95,15 +102,21 @@ def _find_match_by_release_group(title, artist):
 
         # *** FIX 1: Find the correct track instead of grabbing the first one. ***
         best_recording_match = None
-        highest_score = 0
+        highest_score = -1
         for medium in release_details['release']['medium-list']:
             for track in medium['track-list']:
                 recording = track['recording']
                 # Compare the track title with the original query title
                 score = fuzz.ratio(title.lower(), recording['title'].lower())
+
                 if score > highest_score:
                     highest_score = score
                     best_recording_match = recording
+                elif score == highest_score:
+                    # Tie-breaker: prefer shorter title.
+                    # This check is safe because best_recording_match will not be None.
+                    if len(recording['title']) < len(best_recording_match['title']):
+                        best_recording_match = recording
 
         if not best_recording_match:
             return None
@@ -140,9 +153,12 @@ def _find_match_by_recording(title, artist):
         query_str = f"{title.lower()} {artist.lower()}"
         best_match = max(
             result['recording-list'],
-            key=lambda r: fuzz.ratio(
-                query_str,
-                f"{r['title'].lower()} {r['artist-credit-phrase'].lower()}"
+            key=lambda r: (
+                fuzz.ratio(
+                    query_str,
+                    f"{r['title'].lower()} {r['artist-credit-phrase'].lower()}"
+                ),
+                -len(r['title'])  # Tie-breaker: shorter title is better
             )
         )
 
