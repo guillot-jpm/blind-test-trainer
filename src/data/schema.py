@@ -10,43 +10,22 @@ import os
 import sqlite3
 from src.utils.config_manager import config
 
-# SQL statement to create the 'artists' table
-CREATE_ARTISTS_TABLE = """
-CREATE TABLE IF NOT EXISTS artists (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE
-);
-"""
-
-# SQL statement to create the 'albums' table
-CREATE_ALBUMS_TABLE = """
-CREATE TABLE IF NOT EXISTS albums (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    artist_id INTEGER,
-    FOREIGN KEY (artist_id) REFERENCES artists (id),
-    UNIQUE (name, artist_id)
-);
-"""
-
 # SQL statement to create the 'songs' table
 CREATE_SONGS_TABLE = """
 CREATE TABLE IF NOT EXISTS songs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    song_id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
-    artist_id INTEGER,
-    album_id INTEGER,
-    file_path TEXT NOT NULL UNIQUE,
-    duration REAL,
-    FOREIGN KEY (artist_id) REFERENCES artists (id),
-    FOREIGN KEY (album_id) REFERENCES albums (id)
+    artist TEXT NOT NULL,
+    release_year INTEGER,
+    language TEXT,
+    genre TEXT,
+    local_filename TEXT NOT NULL UNIQUE,
+    musicbrainz_id TEXT UNIQUE
 );
 """
 
 # A list of all table creation statements
 ALL_TABLES = [
-    CREATE_ARTISTS_TABLE,
-    CREATE_ALBUMS_TABLE,
     CREATE_SONGS_TABLE
 ]
 
