@@ -43,7 +43,7 @@ class TestSongLibrary(unittest.TestCase):
         sr_data = cursor.fetchone()
         self.assertIsNotNone(sr_data)
         self.assertEqual(sr_data[0], song_id)
-        self.assertEqual(sr_data[3], str(date.today()))
+        self.assertEqual(sr_data[3], date.today())
 
 
     def test_get_all_songs(self):
