@@ -36,10 +36,22 @@ CREATE TABLE IF NOT EXISTS play_history (
 );
 """
 
+# SQL statement to create the 'spaced_repetition' table
+CREATE_SPACED_REPETITION_TABLE = """
+CREATE TABLE IF NOT EXISTS spaced_repetition (
+    song_id INTEGER PRIMARY KEY,
+    current_interval_days INTEGER NOT NULL DEFAULT 1,
+    ease_factor REAL NOT NULL DEFAULT 2.5,
+    next_review_date DATE NOT NULL,
+    FOREIGN KEY(song_id) REFERENCES songs(song_id)
+);
+"""
+
 # A list of all table creation statements
 ALL_TABLES = [
     CREATE_SONGS_TABLE,
-    CREATE_PLAY_HISTORY_TABLE
+    CREATE_PLAY_HISTORY_TABLE,
+    CREATE_SPACED_REPETITION_TABLE
 ]
 
 
