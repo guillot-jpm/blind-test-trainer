@@ -59,9 +59,12 @@ def _find_match_by_release_group(title, artist):
         query_str = f"{title.lower()} {artist.lower()}"
         best_match_rg = max(
             result['release-group-list'],
-            key=lambda rg: fuzz.ratio(
-                query_str,
-                f"{rg['title'].lower()} {rg['artist-credit-phrase'].lower()}"
+            key=lambda rg: (
+                fuzz.ratio(
+                    query_str,
+                    f"{rg['title'].lower()} {rg['artist-credit-phrase'].lower()}"
+                ),
+                -len(rg['title'])  # Tie-breaker: shorter title is better
             )
         )
 
@@ -140,9 +143,12 @@ def _find_match_by_recording(title, artist):
         query_str = f"{title.lower()} {artist.lower()}"
         best_match = max(
             result['recording-list'],
-            key=lambda r: fuzz.ratio(
-                query_str,
-                f"{r['title'].lower()} {r['artist-credit-phrase'].lower()}"
+            key=lambda r: (
+                fuzz.ratio(
+                    query_str,
+                    f"{r['title'].lower()} {r['artist-credit-phrase'].lower()}"
+                ),
+                -len(r['title'])  # Tie-breaker: shorter title is better
             )
         )
 
