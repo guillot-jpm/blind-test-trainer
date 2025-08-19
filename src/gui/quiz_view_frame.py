@@ -72,7 +72,8 @@ class QuizView(tk.Frame):
         self.answer_label = tk.Label(
             self.answer_reveal_frame,
             text="",
-            font=("Arial", 16)
+            font=("Arial", 16),
+            wraplength=500
         )
         self.answer_label.pack(pady=20)
 
