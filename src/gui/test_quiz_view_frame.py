@@ -68,9 +68,6 @@ def test_handle_user_response_correct(quiz_view):
     song_id = quiz_view.current_song['song_id']
     reaction_time = quiz_view.reaction_time
 
-    # Mock the return value for the SRS calculation
-    quiz_view.mock_srs_service.calculate_next_srs_review.return_value = (2, 2.6, '2025-01-01')
-
     # Act
     quiz_view.handle_user_response(was_correct=was_correct)
 
@@ -82,38 +79,40 @@ def test_handle_user_response_correct(quiz_view):
         reaction_time=reaction_time
     )
 
-    # 2. Check if SRS calculation was called
-    quiz_view.mock_srs_service.calculate_next_srs_review.assert_called_once_with(
+    # 2. Check that the main SRS service function was called
+    quiz_view.mock_srs_service.update_srs_data_for_song.assert_called_once_with(
         song_id=song_id,
         was_correct=was_correct,
         reaction_time=reaction_time
     )
 
-    # 3. Check if SRS data was updated in the database
-    quiz_view.mock_song_lib.update_srs_data.assert_called_once_with(
-        song_id, 2, 2.6, '2025-01-01'
-    )
-
-    # 4. Check if the result was recorded
+    # 3. Check if the result was recorded in the session
     quiz_view.session.record_result.assert_called_once_with(was_correct)
 
-    # 5. Check if it proceeds to the next song
+    # 4. Check if it proceeds to the next song
     quiz_view.session.next_song.assert_called_once()
 
 
-def test_start_new_quiz_passes_mode(quiz_view):
+def test_start_new_quiz_passes_shuffled_list(quiz_view):
     """
-    Tests if start_new_quiz creates a QuizSession with the correct mode.
+    Tests if start_new_quiz shuffles the song list before creating a QuizSession.
     """
     # Arrange
-    quiz_view.mock_song_lib.get_due_songs.return_value = [1, 2, 3]
-    test_mode = "Challenge"
+    due_songs = [1, 2, 3, 4, 5]
+    quiz_view.mock_song_lib.get_due_songs.return_value = due_songs
+    test_mode = "Standard"
 
     # Act
     quiz_view.start_new_quiz(mode=test_mode)
 
     # Assert
-    quiz_view.MockQuizSession.assert_called_once_with(song_ids=[1, 2, 3], mode=test_mode)
+    # Check that QuizSession was called with the correct mode and song IDs,
+    # but we can't assume the order of song_ids due to shuffling.
+    quiz_view.MockQuizSession.assert_called_once()
+    call_args, call_kwargs = quiz_view.MockQuizSession.call_args
+    assert "mode" in call_kwargs and call_kwargs["mode"] == test_mode
+    assert "song_ids" in call_kwargs
+    assert sorted(call_kwargs["song_ids"]) == sorted(due_songs)
 
 
 def test_prepare_next_question_shows_results_when_finished(quiz_view):
@@ -174,24 +173,27 @@ def test_handle_user_response_incorrect(quiz_view):
     was_correct = False
     song_id = quiz_view.current_song['song_id']
     reaction_time = quiz_view.reaction_time
-    quiz_view.mock_srs_service.calculate_next_srs_review.return_value = (1, 2.4, '2025-01-02')
 
     # Act
     quiz_view.handle_user_response(was_correct=was_correct)
 
     # Assert
+    # 1. Check if play history was recorded
     quiz_view.mock_db_manager.record_play_history.assert_called_once_with(
         song_id=song_id,
         was_correct=was_correct,
         reaction_time=reaction_time
     )
-    quiz_view.mock_srs_service.calculate_next_srs_review.assert_called_once_with(
+
+    # 2. Check that the main SRS service function was called
+    quiz_view.mock_srs_service.update_srs_data_for_song.assert_called_once_with(
         song_id=song_id,
         was_correct=was_correct,
         reaction_time=reaction_time
     )
-    quiz_view.mock_song_lib.update_srs_data.assert_called_once_with(
-        song_id, 1, 2.4, '2025-01-02'
-    )
+
+    # 3. Check if the result was recorded in the session
     quiz_view.session.record_result.assert_called_once_with(was_correct)
+
+    # 4. Check if it proceeds to the next song
     quiz_view.session.next_song.assert_called_once()
