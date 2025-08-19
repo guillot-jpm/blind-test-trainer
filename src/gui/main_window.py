@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from src.gui.library_manager_window import create_library_manager_window
-from src.utils.config_manager import load_config, config
+from src.utils.config_manager import config
 from src.data.database_manager import (
     connect,
     disconnect,
@@ -15,7 +15,7 @@ class MainWindow(tk.Tk):
     handling the main user interface, and managing the application's lifecycle.
     """
 
-    def __init__(self):
+    def __init__(self, new_config_created=False):
         """
         Initializes the main window, sets up the database connection,
         and creates the UI components.
@@ -25,8 +25,8 @@ class MainWindow(tk.Tk):
         self.geometry("400x300")
 
         try:
-            # Load configuration and connect to the database.
-            new_config_created = load_config()
+            # The configuration is already loaded by main.py
+            # We just need to get the database path and connect.
             db_path = config.get('Paths', 'database_file')
 
             # Establish the database connection.

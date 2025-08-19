@@ -1,4 +1,4 @@
 pytest
-musicbrainzngs
+spotipy
 thefuzz
 python-levenshtein

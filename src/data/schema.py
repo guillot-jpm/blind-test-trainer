@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS songs (
     language TEXT,
     genre TEXT,
     local_filename TEXT NOT NULL UNIQUE,
-    musicbrainz_id TEXT UNIQUE
+    spotify_id TEXT UNIQUE
 );
 """
 
