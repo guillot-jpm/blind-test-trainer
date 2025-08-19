@@ -34,7 +34,7 @@ class QuizView(tk.Frame):
         self.current_song = None
         self.start_time = 0
         self.reaction_time = 0.0
-        self.space_was_pressed = False
+        self.is_round_active = False
 
         # Initialize pygame mixer
         pygame.mixer.init()
@@ -98,7 +98,7 @@ class QuizView(tk.Frame):
         self.quit_button = tk.Button(
             self.bottom_region,
             text="Quit Session",
-            command=lambda: controller.show_frame("MainMenuFrame")
+            command=lambda: self.controller.show_frame("MainMenuFrame")
         )
         self.quit_button.pack(side="right")
 
@@ -164,12 +164,12 @@ class QuizView(tk.Frame):
 
         # 3. Update SRS data
         try:
-            new_interval, new_ease, next_review = srs_service.calculate_next_srs_review(
+            # The srs_service now handles fetching, calculating, and updating.
+            srs_service.update_srs_data_for_song(
                 song_id=song_id,
                 was_correct=was_correct,
                 reaction_time=self.reaction_time
             )
-            song_library.update_srs_data(song_id, new_interval, new_ease, next_review)
         except Exception as e:
             print(f"Error updating SRS data: {e}")
             messagebox.showerror("SRS Error", "Failed to update learning data. Please check the logs.")
@@ -221,60 +221,65 @@ class QuizView(tk.Frame):
                 while pygame.mixer.music.get_busy():
                     time.sleep(0.1)
             except pygame.error as e:
+                # Schedule the error to be shown in the main thread
                 self.after(0, lambda: messagebox.showerror("Playback Error", f"An error occurred during audio playback:\n\n{e}"))
             finally:
                 # This block runs when the music stops for any reason.
-                pygame.mixer.music.stop()  # Safeguard stop
-                os.remove(temp_filename)
-
-                def transition_if_needed():
-                    # If space was not pressed, the song finished naturally.
-                    # We need to unbind the key and move to the answer state.
-                    if not self.space_was_pressed:
-                        self.unbind_spacebar()
-                        print("Song finished naturally.")
-                        self.reaction_time = -1  # Indicate timeout
-                        self.show_answer_reveal_state()
-
-                # All UI updates must be done in the main thread.
-                self.after(0, transition_if_needed)
+                pygame.mixer.music.stop()
+                if os.path.exists(temp_filename):
+                    os.remove(temp_filename)
 
         # UI changes
         self.play_song_button.grid_forget()
         self.prompt_label.grid(row=0, column=0, sticky="nsew")
 
-        # Bind spacebar to the handler and reset the flag for the new round
+        # Bind spacebar to the handler and set the flag for the new round
         self.controller.bind("<space>", self.handle_spacebar_press)
-        self.space_was_pressed = False
+        self.is_round_active = True
 
-        # Start timer and playback
+        # Start timer, playback, and status checker
         self.start_time = time.time()
         threading.Thread(target=playback, daemon=True).start()
+        self.after(100, self.check_music_status)
+
+    def check_music_status(self):
+        """
+        Polls the status of the music playback. If the music stops and the
+        round is still active, it means the song timed out.
+        """
+        if not self.is_round_active:
+            return  # Stop polling if the round has been ended by the user
+
+        if not pygame.mixer.music.get_busy():
+            print("Song finished naturally.")
+            self.is_round_active = False  # End the round
+            self.reaction_time = -1  # Indicate timeout
+            self.unbind_spacebar()
+            self.show_answer_reveal_state()
+        else:
+            # Music is still playing, check again later.
+            self.after(100, self.check_music_status)
 
     def handle_spacebar_press(self, event=None):
         """
         Handles the spacebar press event.
         Stops the timer, fades out the music, and shows the answer.
         """
-        # This check prevents the handler from running if the song has ended
-        # and the spacebar is pressed before the unbind call is processed.
-        if not pygame.mixer.music.get_busy():
+        if not self.is_round_active:
             return
 
-        self.space_was_pressed = True
+        self.is_round_active = False # End the round
+        self.unbind_spacebar()
 
         # 1. Stop timer and store reaction time
         reaction_time = time.time() - self.start_time
         self.reaction_time = round(reaction_time, 2)
-        print(f"Reaction time: {self.reaction_time} seconds")  # For debugging
+        print(f"Reaction time: {self.reaction_time} seconds")
 
-        # 2. Unbind spacebar to prevent multiple presses
-        self.unbind_spacebar()
-
-        # 3. Fade out music (this will also stop playback)
+        # 2. Fade out music
         pygame.mixer.music.fadeout(500)
 
-        # 4. Transition to the answer reveal state
+        # 3. Transition to the answer reveal state
         self.after(500, self.show_answer_reveal_state)
 
     def unbind_spacebar(self):
