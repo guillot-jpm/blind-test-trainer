@@ -29,9 +29,9 @@ class MainWindow(tk.Tk):
         self.geometry("550x550")
 
         # --- Font configuration ---
-        self.title_font = ("Calibri", 18, "bold")
-        self.body_font = ("Calibri", 12)
-        self.button_font = ("Calibri", 12, "bold")
+        self.title_font = ("Arial", 18, "bold")
+        self.body_font = ("Arial", 12)
+        self.button_font = ("Arial", 12, "bold")
 
         try:
             db_path = config.get("Paths", "database_file")
