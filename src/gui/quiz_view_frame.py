@@ -166,7 +166,8 @@ class QuizView(tk.Frame):
         try:
             new_interval, new_ease, next_review = srs_service.calculate_next_srs_review(
                 song_id=song_id,
-                was_correct=was_correct
+                was_correct=was_correct,
+                reaction_time=self.reaction_time
             )
             song_library.update_srs_data(song_id, new_interval, new_ease, next_review)
         except Exception as e:
