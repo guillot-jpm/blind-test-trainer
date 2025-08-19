@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 
 from src.gui.main_menu_frame import MainMenuFrame
 from src.gui.quiz_view_frame import QuizView
@@ -28,10 +28,15 @@ class MainWindow(tk.Tk):
         self.title("Blind Test Trainer")
         self.geometry("550x550")
 
-        # --- Font configuration ---
-        self.title_font = ("Arial", 18, "bold")
-        self.body_font = ("Arial", 12)
-        self.button_font = ("Arial", 12, "bold")
+        # --- Style and Font configuration ---
+        self.style = ttk.Style(self)
+        self.title_font = ("Ubuntu", 18, "bold")
+        self.body_font = ("Ubuntu", 12)
+        self.button_font = ("Ubuntu", 12, "bold")
+
+        # Configure ttk styles
+        self.style.configure("MainMenu.TButton", font=self.button_font)
+        self.style.configure("Stats.TLabel", font=self.body_font)
 
         try:
             db_path = config.get("Paths", "database_file")

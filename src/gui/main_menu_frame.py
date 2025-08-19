@@ -25,15 +25,6 @@ class MainMenuFrame(tk.Frame):
         super().__init__(parent)
         self.controller = controller
 
-        # --- Style Configuration ---
-        style = ttk.Style()
-        style.configure(
-            "MainMenu.TButton",
-            font=self.controller.button_font,
-            padding=10
-        )
-        style.configure("Stats.TLabel", font=self.controller.body_font, anchor="w")
-
         # --- Main Container ---
         main_container = tk.Frame(self)
         main_container.pack(expand=True)
