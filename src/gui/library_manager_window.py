@@ -1,8 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import os
-from src.services import musicbrainz_service
-from src.services.musicbrainz_service import MusicBrainzAPIError
+from src.services import spotify_service
+from src.services.spotify_service import SpotifyAPIError
 from src.utils.config_manager import config
 from src.data.song_library import add_song, DuplicateSongError
 
@@ -109,12 +109,12 @@ def search_and_preview(title, artist, filename, preview_area, add_button, window
     # Show a temporary message while searching; this will be replaced by results or an error.
     preview_area.config(state="normal")
     preview_area.delete("1.0", tk.END)
-    preview_area.insert("1.0", "Searching for song metadata on MusicBrainz...")
+    preview_area.insert("1.0", "Searching for song metadata on Spotify...")
     preview_area.config(state="disabled")
     window.update_idletasks()  # Force the UI to update
 
     try:
-        match = musicbrainz_service.find_best_match(title, artist)
+        match = spotify_service.find_best_match(title, artist)
 
         # --- 4. Update Preview Area ---
         if match:
@@ -128,8 +128,8 @@ def search_and_preview(title, artist, filename, preview_area, add_button, window
                 f"Artist: {match['artist']}\n"
                 f"Primary Artist: {match['primary_artist']}\n"
                 f"Release Year: {match['release_year']}\n\n"
-                f"--- MusicBrainz ID ---\n"
-                f"Release Group ID: {match['release_group_id']}"
+                f"--- Spotify ID ---\n"
+                f"Track ID: {match['spotify_id']}"
             )
 
             preview_area.config(state="normal")
@@ -147,7 +147,7 @@ def search_and_preview(title, artist, filename, preview_area, add_button, window
             preview_area.config(state="disabled")
             add_button.config(state="disabled")
 
-    except MusicBrainzAPIError as e:
+    except SpotifyAPIError as e:
         messagebox.showerror("API Connection Error", str(e))
         # Also clear the preview area and disable the add button
         preview_area.config(state="normal")
@@ -172,7 +172,7 @@ def add_to_library(window, add_button, preview_area, title_entry, artist_entry, 
             artist=data['artist'],
             release_year=data['release_year'],
             local_filename=data['local_filename'],
-            musicbrainz_release_group_id=data['release_group_id']
+            spotify_id=data['spotify_id']
         )
         messagebox.showinfo(
             "Success",

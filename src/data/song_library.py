@@ -33,7 +33,7 @@ def _create_srs_record(song_id, cursor):
     """, (song_id, date.today()))
 
 
-def add_song(title, artist, release_year, local_filename, musicbrainz_release_group_id=None):
+def add_song(title, artist, release_year, local_filename, spotify_id=None):
     """
     Adds a new song to the database and initializes its spaced repetition data.
 
@@ -42,20 +42,20 @@ def add_song(title, artist, release_year, local_filename, musicbrainz_release_gr
         artist (str): The artist of the song.
         release_year (int): The release year of the song.
         local_filename (str): The local filename of the song file.
-        musicbrainz_release_group_id (str, optional): The MusicBrainz Release Group ID. Defaults to None.
+        spotify_id (str, optional): The Spotify Track ID. Defaults to None.
 
     Returns:
         int: The song_id of the newly added song.
 
     Raises:
-        DuplicateSongError: If a song with the same local_filename or MusicBrainz ID already exists.
+        DuplicateSongError: If a song with the same local_filename or Spotify ID already exists.
     """
     try:
         cursor = get_cursor()
         cursor.execute("""
-            INSERT INTO songs (title, artist, release_year, local_filename, musicbrainz_release_group_id)
+            INSERT INTO songs (title, artist, release_year, local_filename, spotify_id)
             VALUES (?, ?, ?, ?, ?)
-        """, (title, artist, release_year, local_filename, musicbrainz_release_group_id))
+        """, (title, artist, release_year, local_filename, spotify_id))
 
         song_id = cursor.lastrowid
 
@@ -66,7 +66,7 @@ def add_song(title, artist, release_year, local_filename, musicbrainz_release_gr
         return song_id
     except sqlite3.IntegrityError:
         cursor.connection.rollback()
-        raise DuplicateSongError("A song with the same local filename or MusicBrainz ID already exists.")
+        raise DuplicateSongError("A song with the same local filename or Spotify ID already exists.")
 
 def get_song_by_id(song_id):
     """

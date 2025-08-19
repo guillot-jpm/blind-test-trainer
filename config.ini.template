@@ -15,3 +15,9 @@ database_file = data/quiz_library.db
 [Settings]
 # The duration of the audio snippet played during a quiz, in seconds.
 snippet_duration_seconds = 15
+
+[Spotify]
+# Spotify API credentials
+# To get these, go to the Spotify Developer Dashboard and create an app.
+spotify_client_id = YOUR_CLIENT_ID
+spotify_client_secret = YOUR_CLIENT_SECRET
