@@ -127,3 +127,54 @@ def record_play_history(song_id, was_correct, reaction_time):
         # but for a single INSERT, it's less critical.
         cursor.connection.rollback()
         raise
+
+
+def get_total_song_count():
+    """
+    Retrieves the total number of songs in the library.
+
+    Returns:
+        int: The total count of songs, or 0 if an error occurs.
+    """
+    try:
+        cursor = get_cursor()
+        cursor.execute("SELECT COUNT(*) FROM songs")
+        # fetchone() will return a tuple, e.g., (15,)
+        result = cursor.fetchone()
+        return result[0] if result else 0
+    except sqlite3.Error as e:
+        print(f"Failed to get total song count: {e}")
+        return 0
+
+
+def get_all_release_years():
+    """
+    Fetches all non-null release years from the songs table.
+
+    Returns:
+        list[int]: A list of release years. Returns an empty list on error.
+    """
+    try:
+        cursor = get_cursor()
+        cursor.execute("SELECT release_year FROM songs WHERE release_year IS NOT NULL")
+        # fetchall() returns a list of tuples, e.g., [(1990,), (2004,)]
+        return [row[0] for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        print(f"Failed to get release years: {e}")
+        return []
+
+
+def get_all_srs_intervals():
+    """
+    Fetches all current SRS interval days from the spaced_repetition table.
+
+    Returns:
+        list[int]: A list of interval days. Returns an empty list on error.
+    """
+    try:
+        cursor = get_cursor()
+        cursor.execute("SELECT current_interval_days FROM spaced_repetition")
+        return [row[0] for row in cursor.fetchall()]
+    except sqlite3.Error as e:
+        print(f"Failed to get SRS intervals: {e}")
+        return []

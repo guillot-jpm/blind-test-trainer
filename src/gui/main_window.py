@@ -72,8 +72,16 @@ class MainWindow(tk.Tk):
         self.show_frame("MainMenuFrame")
 
     def show_frame(self, page_name):
-        """Raises the specified frame to the top of the stacking order."""
+        """
+        Raises the specified frame to the top of the stacking order.
+        If the target frame is the MainMenuFrame, its statistics are refreshed.
+        """
         frame = self.frames[page_name]
+
+        # Refresh stats if we are showing the main menu
+        if page_name == "MainMenuFrame":
+            frame.update_statistics()
+
         frame.tkraise()
 
     def on_close(self):
