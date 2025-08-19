@@ -10,7 +10,8 @@ from pydub import AudioSegment
 import pygame
 
 from src.services.quiz_session import QuizSession
-from src.data import song_library
+from src.data import song_library, database_manager
+from src.services import srs_service
 from src.utils.config_manager import config
 
 
@@ -80,15 +81,15 @@ class QuizView(tk.Frame):
 
         self.correct_button = tk.Button(
             buttons_frame,
-            text="I Knew It!",
-            command=self.proceed_to_next_song
+            text="I Got It Right",
+            command=lambda: self.handle_user_response(was_correct=True)
         )
         self.correct_button.pack(side="left", padx=10)
 
         self.incorrect_button = tk.Button(
             buttons_frame,
-            text="Didn't Get It",
-            command=self.proceed_to_next_song
+            text="I Was Wrong",
+            command=lambda: self.handle_user_response(was_correct=False)
         )
         self.incorrect_button.pack(side="right", padx=10)
 
@@ -133,6 +134,41 @@ class QuizView(tk.Frame):
         self.answer_reveal_frame.grid_forget()
         self.prompt_label.grid_forget()
         self.play_song_button.grid(row=0, column=0, sticky="nsew")
+
+    def handle_user_response(self, was_correct: bool):
+        """
+        Handles the user's feedback (correct/incorrect), logs the result,
+        updates SRS data, and moves to the next song.
+
+        Args:
+            was_correct (bool): True if the user's response was correct.
+        """
+        song_id = self.current_song['song_id']
+
+        # 1. Record play history
+        try:
+            database_manager.record_play_history(
+                song_id=song_id,
+                was_correct=was_correct,
+                reaction_time=self.reaction_time
+            )
+        except Exception as e:
+            print(f"Error recording play history: {e}")
+            messagebox.showerror("Database Error", "Failed to save your progress. Please check the logs.")
+
+        # 2. Update SRS data
+        try:
+            new_interval, new_ease, next_review = srs_service.calculate_next_srs_review(
+                song_id=song_id,
+                was_correct=was_correct
+            )
+            song_library.update_srs_data(song_id, new_interval, new_ease, next_review)
+        except Exception as e:
+            print(f"Error updating SRS data: {e}")
+            messagebox.showerror("SRS Error", "Failed to update learning data. Please check the logs.")
+
+        # 3. Proceed to the next question
+        self.proceed_to_next_song()
 
     def proceed_to_next_song(self):
         """Processes the user's feedback and moves to the next song."""
@@ -245,6 +281,12 @@ class QuizView(tk.Frame):
         Transitions the UI to show the song answer and user response options.
         """
         self.prompt_label.grid_forget()
+
+        # Update status label to show reaction time
+        if self.reaction_time != -1:
+            self.status_label.config(text=f"Reaction Time: {self.reaction_time}s")
+        else:
+            self.status_label.config(text="Time's Up!")
 
         # Update and show the answer label
         song_info = f"{self.current_song['title']} - {self.current_song['artist']}"
