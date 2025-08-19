@@ -3,6 +3,7 @@ from tkinter import messagebox
 
 from src.gui.main_menu_frame import MainMenuFrame
 from src.gui.quiz_view_frame import QuizView
+from src.gui.library_management_frame import LibraryManagementFrame
 from src.data.database_manager import (
     connect,
     disconnect,
@@ -25,7 +26,12 @@ class MainWindow(tk.Tk):
         """
         super().__init__()
         self.title("Blind Test Trainer")
-        self.geometry("400x300")
+        self.geometry("500x550")
+
+        # --- Font configuration ---
+        self.title_font = ("Helvetica", 18, "bold")
+        self.body_font = ("Helvetica", 12)
+        self.button_font = ("Helvetica", 12, "bold")
 
         try:
             db_path = config.get("Paths", "database_file")
@@ -57,7 +63,7 @@ class MainWindow(tk.Tk):
 
         self.frames = {}
 
-        for F in (MainMenuFrame, QuizView):
+        for F in (MainMenuFrame, QuizView, LibraryManagementFrame):
             page_name = F.__name__
             frame = F(parent=self.container, controller=self)
             self.frames[page_name] = frame
