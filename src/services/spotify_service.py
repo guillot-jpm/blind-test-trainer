@@ -17,20 +17,31 @@ class SpotifyAPIError(Exception):
     pass
 
 
-# --- Authentication ---
-try:
-    client_id = config.get('Spotify', 'spotify_client_id')
-    client_secret = config.get('Spotify', 'spotify_client_secret')
+# --- Service Instance ---
+# Will be initialized by the main application entry point.
+spotify = None
 
-    if 'YOUR_CLIENT_ID' in client_id or 'YOUR_CLIENT_SECRET' in client_secret:
-        raise SpotifyAPIError("Spotify credentials are not configured. Please edit config.ini.")
+def initialize_spotify_service():
+    """
+    Initializes the Spotify API client.
+    This must be called after the main configuration is loaded.
+    """
+    global spotify
+    try:
+        client_id = config.get('Spotify', 'spotify_client_id')
+        client_secret = config.get('Spotify', 'spotify_client_secret')
 
-    auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
-    spotify = spotipy.Spotify(auth_manager=auth_manager)
+        if not client_id or 'YOUR_CLIENT_ID' in client_id or \
+           not client_secret or 'YOUR_CLIENT_SECRET' in client_secret:
+            raise SpotifyAPIError("Spotify credentials are not configured. Please edit config.ini.")
 
-except (NoSectionError, NoOptionError, SpotifyAPIError) as e:
-    print(f"Spotify service is not available: {e}")
-    spotify = None
+        auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
+        spotify = spotipy.Spotify(auth_manager=auth_manager)
+        print("Spotify service initialized successfully.")
+
+    except (NoSectionError, NoOptionError, SpotifyAPIError) as e:
+        print(f"Spotify service could not be initialized: {e}")
+        spotify = None
 
 
 # --- Public Functions ---
