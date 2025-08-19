@@ -124,9 +124,15 @@ class QuizView(tk.Frame):
         self.session = None  # Reset session in case of failure
         due_songs = song_library.get_due_songs()
         if not due_songs:
-            messagebox.showinfo("No Songs Due", "There are no songs due for review today!")
+            messagebox.showinfo(
+                "No Songs Due",
+                "No songs are due for review today. Great job!"
+            )
             self.controller.show_frame("MainMenuFrame")
             return
+
+        # Shuffle the list of due songs for variety
+        random.shuffle(due_songs)
 
         self.session = QuizSession(song_ids=due_songs, mode=mode)
         self.prepare_next_question()
