@@ -2,3 +2,5 @@ pytest
 spotipy
 thefuzz
 python-levenshtein
+pydub
+pygame

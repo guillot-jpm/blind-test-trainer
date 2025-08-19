@@ -25,7 +25,7 @@ class MainMenuFrame(tk.Frame):
         start_quiz_button = tk.Button(
             self,
             text="Start Quiz",
-            command=lambda: controller.show_frame("QuizView")
+            command=self.start_quiz
         )
         start_quiz_button.pack(pady=10)
 
@@ -35,6 +35,17 @@ class MainMenuFrame(tk.Frame):
             command=self.launch_library_manager
         )
         launch_button.pack(pady=10)
+
+    def start_quiz(self):
+        """
+        Starts a new quiz.
+        """
+        quiz_view = self.controller.frames["QuizView"]
+        quiz_view.start_new_quiz()
+        # The start_new_quiz method will switch to the main menu
+        # if there are no songs, so we only switch if it doesn't.
+        if quiz_view.session:
+            self.controller.show_frame("QuizView")
 
     def launch_library_manager(self):
         """
