@@ -55,50 +55,68 @@ class TestSpotifyService(unittest.TestCase):
         self.assertIsNone(spotify_service.spotify)
 
     @patch('src.services.spotify_service.spotify')
-    def test_find_best_match_success(self, mock_spotify_client):
-        """
-        Tests the successful path where a suitable track is found.
-        """
-        # Ensure the client is mocked for this test
+    def test_search_by_title_success(self, mock_spotify_client):
+        """Tests finding a song by title, selecting the most popular one."""
+        spotify_service.spotify = mock_spotify_client
+        mock_spotify_client.search.return_value = {
+            'tracks': {
+                'items': [
+                    {'name': 'Test Song', 'popularity': 50, 'id': 'less-popular', 'artists': [{'name': 'Artist A'}], 'album': {'release_date': '2020'}},
+                    {'name': 'Test Song', 'popularity': 80, 'id': 'more-popular', 'artists': [{'name': 'Artist B'}], 'album': {'release_date': '2021'}},
+                ]
+            }
+        }
+        result = spotify_service.search_by_title("Test Song")
+        self.assertIsNotNone(result)
+        self.assertEqual(result['spotify_id'], 'more-popular')
+
+    @patch('src.services.spotify_service.spotify')
+    def test_search_by_title_and_artist_success(self, mock_spotify_client):
+        """Tests the successful path for finding a song by title and artist."""
         spotify_service.spotify = mock_spotify_client
         mock_spotify_client.search.return_value = self.mock_spotify_search_result
-
-        result = spotify_service.find_best_match("Despacito", "Luis Fonsi")
-
+        result = spotify_service.search_by_title_and_artist("Despacito", "Luis Fonsi")
         self.assertIsNotNone(result)
         self.assertEqual(result['spotify_id'], 'track-id-1')
         mock_spotify_client.search.assert_called_once()
 
-    def test_find_best_match_service_not_initialized(self):
-        """
-        Tests that an error is raised if the service is not initialized.
-        """
+    @patch('src.services.spotify_service.spotify')
+    def test_get_track_by_id_success(self, mock_spotify_client):
+        """Tests fetching a track directly by its ID."""
+        spotify_service.spotify = mock_spotify_client
+        # The track method returns a single item, not a search result list
+        mock_track = self.mock_spotify_search_result['tracks']['items'][0]
+        mock_spotify_client.track.return_value = mock_track
+
+        result = spotify_service.get_track_by_id('track-id-1')
+        self.assertIsNotNone(result)
+        self.assertEqual(result['title'], 'Despacito')
+        mock_spotify_client.track.assert_called_with('track-id-1')
+
+    def test_search_service_not_initialized(self):
+        """Tests that an error is raised if the service is not initialized."""
         spotify_service.spotify = None
         with self.assertRaisesRegex(spotify_service.SpotifyAPIError, "Spotify service is not initialized"):
-            spotify_service.find_best_match("Any", "Any")
+            spotify_service.search_by_title("Any")
+        with self.assertRaisesRegex(spotify_service.SpotifyAPIError, "Spotify service is not initialized"):
+            spotify_service.search_by_title_and_artist("Any", "Any")
+        with self.assertRaisesRegex(spotify_service.SpotifyAPIError, "Spotify service is not initialized"):
+            spotify_service.get_track_by_id("any-id")
 
     @patch('src.services.spotify_service.spotify')
-    def test_find_best_match_not_found(self, mock_spotify_client):
-        """
-        Tests the case where the Spotify API returns no tracks.
-        """
-        spotify_service.spotify = mock_spotify_client
-        mock_spotify_client.search.return_value = {'tracks': {'items': []}}
-
-        result = spotify_service.find_best_match("Unknown Song", "Unknown Artist")
-        self.assertIsNone(result)
-
-    @patch('src.services.spotify_service.spotify')
-    def test_find_best_match_api_error(self, mock_spotify_client):
-        """
-        Tests that a SpotifyException is caught and re-raised as SpotifyAPIError.
-        """
+    def test_search_api_error(self, mock_spotify_client):
+        """Tests that a SpotifyException is caught and re-raised as SpotifyAPIError."""
         spotify_service.spotify = mock_spotify_client
         from spotipy.exceptions import SpotifyException
         mock_spotify_client.search.side_effect = SpotifyException(401, -1, "Unauthorized")
+        mock_spotify_client.track.side_effect = SpotifyException(401, -1, "Unauthorized")
 
         with self.assertRaises(spotify_service.SpotifyAPIError):
-            spotify_service.find_best_match("Any Song", "Any Artist")
+            spotify_service.search_by_title("Any Song")
+        with self.assertRaises(spotify_service.SpotifyAPIError):
+            spotify_service.search_by_title_and_artist("Any Song", "Any Artist")
+        with self.assertRaises(spotify_service.SpotifyAPIError):
+            spotify_service.get_track_by_id("any-id")
 
 if __name__ == '__main__':
     unittest.main()

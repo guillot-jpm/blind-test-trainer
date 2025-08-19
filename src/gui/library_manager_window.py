@@ -23,35 +23,59 @@ def create_library_manager_window(parent):
     window.rowconfigure(0, weight=1)
 
     # --- Input Fields ---
-    # Song Title
-    ttk.Label(main_frame, text="Song Title:").grid(row=0, column=0, sticky=tk.W, pady=2)
-    song_title_entry = ttk.Entry(main_frame, width=40)
-    song_title_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2)
-
-    # Artist
-    ttk.Label(main_frame, text="Artist:").grid(row=1, column=0, sticky=tk.W, pady=2)
-    artist_entry = ttk.Entry(main_frame, width=40)
-    artist_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2)
-
-    # Local Filename
-    ttk.Label(main_frame, text="Local Filename:").grid(row=2, column=0, sticky=tk.W, pady=2)
+    # Row 0: Local Filename (Required)
+    ttk.Label(main_frame, text="Local Filename:").grid(row=0, column=0, sticky=tk.W, pady=2)
     local_filename_entry = ttk.Entry(main_frame, width=40)
-    local_filename_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=2)
+    local_filename_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=2)
+
+    # Row 1: Song Title
+    ttk.Label(main_frame, text="Song Title:").grid(row=1, column=0, sticky=tk.W, pady=2)
+    song_title_entry = ttk.Entry(main_frame, width=40)
+    song_title_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2)
+
+    # Row 2: Artist (Initially Hidden)
+    artist_label = ttk.Label(main_frame, text="Artist:")
+    artist_entry = ttk.Entry(main_frame, width=40)
+
+    # Row 3: Spotify Track ID (Initially Hidden)
+    spotify_id_label = ttk.Label(main_frame, text="Spotify Track ID:")
+    spotify_id_entry = ttk.Entry(main_frame, width=40)
+
+    # --- UI Management for Progressive Disclosure ---
+    # Store widgets that can be hidden/shown
+    window.progressive_widgets = {
+        'artist': (artist_label, artist_entry),
+        'spotify_id': (spotify_id_label, spotify_id_entry)
+    }
+
+    # Hide them initially
+    artist_label.grid_remove()
+    artist_entry.grid_remove()
+    spotify_id_label.grid_remove()
+    spotify_id_entry.grid_remove()
+
+    # Place them in the grid layout for later
+    artist_label.grid(row=2, column=0, sticky=tk.W, pady=2)
+    artist_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=2)
+    spotify_id_label.grid(row=3, column=0, sticky=tk.W, pady=2)
+    spotify_id_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=2)
+
 
     # --- Buttons ---
     button_frame = ttk.Frame(main_frame)
-    button_frame.grid(row=3, column=0, columnspan=2, pady=10, sticky=tk.E)
+    button_frame.grid(row=4, column=0, columnspan=2, pady=10, sticky=tk.E)
 
     search_button = ttk.Button(
         button_frame,
-        text="Search & Preview",
+        text="Search",
         command=lambda: search_and_preview(
-            song_title_entry.get(),
-            artist_entry.get(),
-            local_filename_entry.get(),
+            window,
+            song_title_entry,
+            artist_entry,
+            spotify_id_entry,
+            local_filename_entry,
             preview_area,
-            add_button,
-            window
+            add_button
         )
     )
     search_button.pack(side=tk.LEFT, padx=5)
@@ -66,7 +90,8 @@ def create_library_manager_window(parent):
             preview_area,
             song_title_entry,
             artist_entry,
-            local_filename_entry
+            local_filename_entry,
+            spotify_id_entry
         )
     )
     add_button.pack(side=tk.LEFT)
@@ -75,94 +100,126 @@ def create_library_manager_window(parent):
 
     # --- Preview Area ---
     preview_label = ttk.Label(main_frame, text="Preview:")
-    preview_label.grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
+    preview_label.grid(row=5, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
 
     preview_area = tk.Text(main_frame, height=10, state="disabled", bg="#f0f0f0")
-    preview_area.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
+    preview_area.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-    main_frame.rowconfigure(5, weight=1) # Makes the preview area expandable
+    main_frame.rowconfigure(6, weight=1) # Makes the preview area expandable
 
-def search_and_preview(title, artist, filename, preview_area, add_button, window):
+def search_and_preview(window, song_title_entry, artist_entry, spotify_id_entry, local_filename_entry, preview_area, add_button):
     """
-    Handles the "Search & Preview" button click event.
+    Handles the multi-level search process.
     """
-    # --- 1. Input Validation ---
-    if not all([title, artist, filename]):
-        messagebox.showwarning("Missing Information", "Please fill in all title, artist, and filename fields.")
+    # --- 1. Get current input values ---
+    filename = local_filename_entry.get().strip()
+    title = song_title_entry.get().strip()
+    artist = artist_entry.get().strip()
+    spotify_id = spotify_id_entry.get().strip()
+
+    # --- 2. Input Validation ---
+    if not filename:
+        messagebox.showwarning("Missing Information", "Local Filename is required.")
+        return
+    if not title and not spotify_id:
+        messagebox.showwarning("Missing Information", "Please provide a Song Title or a Spotify Track ID.")
         return
 
-    # --- 2. File Existence Check ---
+    # --- 3. File Existence Check ---
     music_folder = config.get('Paths', 'music_folder')
     file_path = os.path.join(music_folder, filename)
-
     if not os.path.exists(file_path):
-        # If the file doesn't exist, display an error in the preview area.
-        error_message = f"Error: File '{filename}' not found in your music folder."
-        preview_area.config(state="normal")
-        preview_area.delete("1.0", tk.END)
-        preview_area.insert("1.0", error_message)
-        preview_area.config(state="disabled")
+        _update_preview_area(preview_area, f"Error: File '{filename}' not found.", is_error=True)
         add_button.config(state="disabled")
         return
 
-    # --- 3. API Search ---
-    # Show a temporary message while searching; this will be replaced by results or an error.
-    preview_area.config(state="normal")
-    preview_area.delete("1.0", tk.END)
-    preview_area.insert("1.0", "Searching for song metadata on Spotify...")
-    preview_area.config(state="disabled")
-    window.update_idletasks()  # Force the UI to update
+    # --- 4. Determine Search Level and Execute ---
+    _update_preview_area(preview_area, "Searching...")
+    window.update_idletasks()
 
     try:
-        match = spotify_service.find_best_match(title, artist)
-
-        # --- 4. Update Preview Area ---
-        if match:
-            # Store the full metadata in a hidden attribute for later use
-            window.preview_data = match
-            window.preview_data['local_filename'] = filename # Add filename for convenience
-
-            # Format for display
-            display_text = (
-                f"Title: {match['title']}\n"
-                f"Artist: {match['artist']}\n"
-                f"Primary Artist: {match['primary_artist']}\n"
-                f"Release Year: {match['release_year']}\n\n"
-                f"--- Spotify ID ---\n"
-                f"Track ID: {match['spotify_id']}"
-            )
-
-            preview_area.config(state="normal")
-            preview_area.delete("1.0", tk.END)
-            preview_area.insert("1.0", display_text)
-            preview_area.config(state="disabled")
-
-            add_button.config(state="normal") # Enable the "Add" button
+        match = None
+        # Level 3: Spotify ID search (highest priority)
+        if spotify_id:
+            match = spotify_service.get_track_by_id(spotify_id)
+        # Level 2: Title and Artist search
+        elif artist_entry.winfo_viewable():
+            match = spotify_service.search_by_title_and_artist(title, artist)
+        # Level 1: Title-only search
         else:
-            # If no match is found, display a message in the preview area.
-            error_message = "No match found. Please check the title and artist."
-            preview_area.config(state="normal")
-            preview_area.delete("1.0", tk.END)
-            preview_area.insert("1.0", error_message)
-            preview_area.config(state="disabled")
+            match = spotify_service.search_by_title(title)
+
+        # --- 5. Process Results ---
+        if match:
+            _handle_successful_search(
+                window, match, filename, preview_area, add_button,
+                song_title_entry, artist_entry, spotify_id_entry
+            )
+        else:
+            _update_preview_area(preview_area, "No match found.", is_error=True)
             add_button.config(state="disabled")
 
     except SpotifyAPIError as e:
-        messagebox.showerror("API Connection Error", str(e))
-        # Also clear the preview area and disable the add button
-        preview_area.config(state="normal")
-        preview_area.delete("1.0", tk.END)
-        preview_area.insert("1.0", "API request failed.")
-        preview_area.config(state="disabled")
+        _update_preview_area(preview_area, f"API Error: {e}", is_error=True)
         add_button.config(state="disabled")
 
 
-def add_to_library(window, add_button, preview_area, title_entry, artist_entry, filename_entry):
+def _handle_successful_search(window, match, filename, preview_area, add_button,
+                              song_title_entry, artist_entry, spotify_id_entry):
+    """Helper to handle the UI updates after a successful search."""
+    # Store data for the 'Add to Library' action
+    window.preview_data = match
+    window.preview_data['local_filename'] = filename
+
+    # Update the preview text
+    display_text = (
+        f"Title: {match['title']}\n"
+        f"Artist: {match['artist']}\n"
+        f"Release Year: {match['release_year']}\n"
+        f"Spotify ID: {match['spotify_id']}"
+    )
+    _update_preview_area(preview_area, display_text)
+
+    # --- Progressive UI Updates ---
+    # Update title and artist fields to reflect the match
+    song_title_entry.delete(0, tk.END)
+    song_title_entry.insert(0, match['title'])
+    artist_entry.delete(0, tk.END)
+    artist_entry.insert(0, match['artist'])
+
+    # Show artist field if it was hidden
+    if not window.progressive_widgets['artist'][0].winfo_viewable():
+        window.progressive_widgets['artist'][0].grid()
+        window.progressive_widgets['artist'][1].grid()
+
+    # Show Spotify ID field if it was hidden
+    if not window.progressive_widgets['spotify_id'][0].winfo_viewable():
+        window.progressive_widgets['spotify_id'][0].grid()
+        window.progressive_widgets['spotify_id'][1].grid()
+
+    # Update the spotify id field as well
+    spotify_id_entry.delete(0, tk.END)
+    spotify_id_entry.insert(0, match['spotify_id'])
+
+    add_button.config(state="normal")
+
+
+def _update_preview_area(preview_area, text, is_error=False):
+    """Helper function to update the text in the preview area."""
+    preview_area.config(state="normal")
+    preview_area.delete("1.0", tk.END)
+    preview_area.insert("1.0", text)
+    preview_area.config(
+        state="disabled",
+        foreground="red" if is_error else "black"
+    )
+
+def add_to_library(window, add_button, preview_area, title_entry, artist_entry, filename_entry, spotify_id_entry):
     """
-    Handles the "Add to Library" button click event.
+    Handles adding the previewed song to the library and resetting the UI.
     """
     if not hasattr(window, 'preview_data') or not window.preview_data:
-        messagebox.showerror("Error", "No song data to add. Please search for a song first.")
+        messagebox.showerror("Error", "No song data available. Please search for a song first.")
         return
 
     data = window.preview_data
@@ -171,32 +228,40 @@ def add_to_library(window, add_button, preview_area, title_entry, artist_entry, 
             title=data['title'],
             artist=data['artist'],
             release_year=data['release_year'],
-            local_filename=data['local_filename'],
-            spotify_id=data['spotify_id']
+            spotify_id=data['spotify_id'],
+            local_filename=data['local_filename']
         )
-        messagebox.showinfo(
-            "Success",
-            f"'{data['title']}' by {data['artist']} has been added successfully!"
-        )
+        messagebox.showinfo("Success", f"Added '{data['title']}' to the library.")
 
-        # --- Reset UI ---
-        # Clear entry fields
-        title_entry.delete(0, tk.END)
-        artist_entry.delete(0, tk.END)
-        filename_entry.delete(0, tk.END)
-
-        # Clear preview area
-        preview_area.config(state="normal")
-        preview_area.delete("1.0", tk.END)
-        preview_area.config(state="disabled")
-
-        # Disable "Add" button
-        add_button.config(state="disabled")
-
-        # Clear the stored data
-        del window.preview_data
+        # --- Reset UI to initial state ---
+        reset_library_manager_ui(window, add_button, preview_area, title_entry, artist_entry, filename_entry, spotify_id_entry)
 
     except DuplicateSongError:
         messagebox.showerror("Duplicate Song", "This song already exists in the library.")
     except Exception as e:
         messagebox.showerror("Database Error", f"An unexpected error occurred: {e}")
+
+
+def reset_library_manager_ui(window, add_button, preview_area, title_entry, artist_entry, filename_entry, spotify_id_entry):
+    """Resets the Library Manager window to its initial state."""
+    # Clear all text entries
+    title_entry.delete(0, tk.END)
+    artist_entry.delete(0, tk.END)
+    filename_entry.delete(0, tk.END)
+    spotify_id_entry.delete(0, tk.END)
+
+    # Hide progressive widgets
+    window.progressive_widgets['artist'][0].grid_remove()
+    window.progressive_widgets['artist'][1].grid_remove()
+    window.progressive_widgets['spotify_id'][0].grid_remove()
+    window.progressive_widgets['spotify_id'][1].grid_remove()
+
+    # Clear the preview area
+    _update_preview_area(preview_area, "")
+
+    # Disable the add button
+    add_button.config(state="disabled")
+
+    # Delete the temporary preview data
+    if hasattr(window, 'preview_data'):
+        del window.preview_data

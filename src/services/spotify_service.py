@@ -46,59 +46,75 @@ def initialize_spotify_service():
 
 # --- Public Functions ---
 
-def find_best_match(title, artist):
+def search_by_title(title):
     """
-    Finds the best match for a song by searching on Spotify.
+    Finds the most popular track matching the given title.
     """
     if not spotify:
-        raise SpotifyAPIError("Spotify service is not initialized. Check credentials in config.ini.")
+        raise SpotifyAPIError("Spotify service is not initialized.")
 
-    print(f"Attempting to find track for '{title}' by '{artist}' on Spotify...")
+    try:
+        query = f"track:{title}"
+        result = spotify.search(q=query, type='track', limit=10) # Get a few options
+
+        if not result['tracks']['items']:
+            return None
+
+        # Find the best match by popularity
+        best_match_track = max(result['tracks']['items'], key=lambda t: t.get('popularity', 0))
+        return _format_track(best_match_track)
+
+    except spotipy.exceptions.SpotifyException as e:
+        raise SpotifyAPIError(f"Spotify API search failed: {e}") from e
+
+
+def search_by_title_and_artist(title, artist):
+    """
+    Finds the best fuzzy match for a song given a title and artist.
+    """
+    if not spotify:
+        raise SpotifyAPIError("Spotify service is not initialized.")
 
     try:
         query = f"track:{title} artist:{artist}"
         result = spotify.search(q=query, type='track', limit=5)
 
         if not result['tracks']['items']:
-            print("No tracks found on Spotify.")
             return None
 
         query_str = f"{title.lower()} {artist.lower()}"
-
         def get_track_artist_str(track):
             return ', '.join(a['name'] for a in track['artists'])
 
+        # Find the best match using fuzzy string matching
         best_match_track = max(
             result['tracks']['items'],
-            key=lambda track: (
-                fuzz.ratio(
-                    query_str,
-                    f"{track['name'].lower()} {get_track_artist_str(track).lower()}"
-                ),
-                # Tie-breaker: prefer tracks that are not explicit
-                track.get('explicit', False) == False,
-                # Tie-breaker: prefer tracks with higher popularity
-                track.get('popularity', 0)
+            key=lambda track: fuzz.ratio(
+                query_str,
+                f"{track['name'].lower()} {get_track_artist_str(track).lower()}"
             )
         )
-
-        score = fuzz.ratio(
-            query_str,
-            f"{best_match_track['name'].lower()} {get_track_artist_str(best_match_track).lower()}"
-        )
-
-        if score < 70:
-            print(f"No suitable match found. Best match '{best_match_track['name']}' had score {score}.")
-            return None
-
-        print(f"Found best match: '{best_match_track['name']}' by {get_track_artist_str(best_match_track)}")
         return _format_track(best_match_track)
 
     except spotipy.exceptions.SpotifyException as e:
-        print(f"Error connecting to Spotify: {e}")
-        raise SpotifyAPIError(
-            "Could not connect to Spotify. Please check your internet connection and credentials."
-        ) from e
+        raise SpotifyAPIError(f"Spotify API search failed: {e}") from e
+
+
+def get_track_by_id(track_id):
+    """
+    Fetches a single track directly by its Spotify ID.
+    """
+    if not spotify:
+        raise SpotifyAPIError("Spotify service is not initialized.")
+
+    try:
+        track = spotify.track(track_id)
+        if not track:
+            return None
+        return _format_track(track)
+    except spotipy.exceptions.SpotifyException as e:
+        # This can happen if the ID is invalid or not found
+        raise SpotifyAPIError(f"Failed to get track by ID '{track_id}': {e}") from e
 
 
 # --- Private Helper Functions ---
