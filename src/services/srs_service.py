@@ -76,25 +76,31 @@ def _calculate_srs_for_wrong_answer(srs_data: tuple):
     return new_interval_days, new_ease_factor, next_review_date
 
 
-def calculate_next_srs_review(song_id: int, was_correct: bool, reaction_time: float):
+def update_srs_data_for_song(song_id: int, was_correct: bool, reaction_time: float):
     """
-    Calculates the next review date and other SRS parameters for a song.
+    Updates the SRS data for a song based on the user's answer in a quiz.
+
+    This function orchestrates the entire process:
+    1. Fetches the current SRS data.
+    2. Calculates the new SRS parameters based on the answer.
+    3. Persists the new data to the database.
 
     Args:
         song_id (int): The ID of the song being reviewed.
         was_correct (bool): True if the user correctly identified the song.
         reaction_time (float): The user's reaction time in seconds. A value of -1
                              indicates a timeout.
-
-    Returns:
-        tuple: A tuple containing (new_interval, new_ease_factor, next_review_date).
     """
     srs_data = song_library.get_srs_data(song_id)
     if not srs_data:
-        # Should not happen for a song in a quiz, but handle gracefully.
-        return 1, 2.5, date.today() + timedelta(days=1)
+        # This case should ideally not be reached for a song that's part of a quiz.
+        # If it does, we can't proceed with an update. Log or handle error as needed.
+        print(f"Warning: No SRS data found for song_id {song_id}. Cannot update.")
+        return
 
     if was_correct:
-        return _calculate_srs_for_correct_answer(srs_data, reaction_time)
+        new_interval, new_ease_factor, next_review_date = _calculate_srs_for_correct_answer(srs_data, reaction_time)
     else:
-        return _calculate_srs_for_wrong_answer(srs_data)
+        new_interval, new_ease_factor, next_review_date = _calculate_srs_for_wrong_answer(srs_data)
+
+    song_library.update_srs_data(song_id, new_interval, new_ease_factor, next_review_date)

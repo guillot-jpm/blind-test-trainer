@@ -119,3 +119,96 @@ class TestSrsServiceWrongAnswer(unittest.TestCase):
         self.assertEqual(interval, 1)
         self.assertAlmostEqual(ease, 1.3, "Ease factor should be raised to the clamp value of 1.3")
         self.assertEqual(next_review, date(2023, 1, 2))
+
+
+class TestSrsServiceUpdateOrchestration(unittest.TestCase):
+    """
+    Tests the main service function `update_srs_data_for_song`.
+    This ensures that the full orchestration of fetching, calculating, and updating
+    works as expected.
+    """
+
+    @patch('src.services.srs_service.song_library')
+    @patch('src.services.srs_service.date')
+    def test_update_flow_for_correct_answer(self, mock_date, mock_song_library):
+        """
+        Verify that a correct answer fetches data, calculates new values, and calls the update function.
+        """
+        # Arrange
+        mock_date.today.return_value = date(2023, 1, 1)
+        song_id = 1
+        # srs_data tuple: (song_id, current_interval_days, ease_factor, next_review_date)
+        initial_srs_data = (song_id, 10, 2.5, date(2022, 12, 22))
+        mock_song_library.get_srs_data.return_value = initial_srs_data
+
+        # Expected calculated values
+        # base_new_interval = round(10 * 2.5) = 25
+        # reaction_time is < 3.0, so bonus is applied: 25 * 1.2 = 30
+        # final_interval = round(30) = 30
+        expected_new_interval = 30
+        expected_new_ease = 2.5  # Unchanged
+        expected_next_review = date(2023, 1, 31) # today + 30 days
+
+        # Act
+        srs_service.update_srs_data_for_song(song_id, was_correct=True, reaction_time=2.0)
+
+        # Assert
+        # Verify that the initial data was fetched
+        mock_song_library.get_srs_data.assert_called_once_with(song_id)
+        # Verify that the new data was persisted
+        mock_song_library.update_srs_data.assert_called_once_with(
+            song_id,
+            expected_new_interval,
+            expected_new_ease,
+            expected_next_review
+        )
+
+    @patch('src.services.srs_service.song_library')
+    @patch('src.services.srs_service.date')
+    def test_update_flow_for_wrong_answer(self, mock_date, mock_song_library):
+        """
+        Verify that a wrong answer fetches data, calculates new values, and calls the update function.
+        """
+        # Arrange
+        mock_date.today.return_value = date(2023, 1, 1)
+        song_id = 2
+        # srs_data tuple: (song_id, current_interval_days, ease_factor, next_review_date)
+        initial_srs_data = (song_id, 10, 2.5, date(2022, 12, 22))
+        mock_song_library.get_srs_data.return_value = initial_srs_data
+
+        # Expected calculated values
+        expected_new_interval = 1
+        expected_new_ease = 2.3
+        expected_next_review = date(2023, 1, 2) # tomorrow
+
+        # Act
+        # reaction_time is irrelevant for a wrong answer
+        srs_service.update_srs_data_for_song(song_id, was_correct=False, reaction_time=-1)
+
+        # Assert
+        # Verify that the initial data was fetched
+        mock_song_library.get_srs_data.assert_called_once_with(song_id)
+        # Verify that the new data was persisted
+        mock_song_library.update_srs_data.assert_called_once_with(
+            song_id,
+            expected_new_interval,
+            expected_new_ease,
+            expected_next_review
+        )
+
+    @patch('src.services.srs_service.song_library')
+    def test_no_update_if_song_has_no_srs_data(self, mock_song_library):
+        """
+        Verify that the update function is not called if no initial SRS data is found.
+        """
+        # Arrange
+        song_id = 99
+        mock_song_library.get_srs_data.return_value = None
+
+        # Act
+        srs_service.update_srs_data_for_song(song_id, was_correct=True, reaction_time=2.0)
+
+        # Assert
+        mock_song_library.get_srs_data.assert_called_once_with(song_id)
+        # Crucially, assert that the update function was *not* called
+        mock_song_library.update_srs_data.assert_not_called()
