@@ -3,4 +3,4 @@ spotipy
 thefuzz
 python-levenshtein
 pydub
-playsound==1.2.2
+pygame

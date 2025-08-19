@@ -7,7 +7,7 @@ import time
 import tempfile
 import os
 from pydub import AudioSegment
-from playsound import playsound
+import pygame
 
 from src.services.quiz_session import QuizSession
 from src.data import song_library
@@ -32,6 +32,9 @@ class QuizView(tk.Frame):
         self.session = None
         self.current_song = None
         self.start_time = 0
+
+        # Initialize pygame mixer
+        pygame.mixer.init()
 
         # --- Main layout frames ---
         self.top_region = tk.Frame(self)
@@ -134,11 +137,14 @@ class QuizView(tk.Frame):
                 temp_filename = f.name
             snippet.export(temp_filename, format="wav")
             try:
-                playsound(temp_filename)
-            except Exception as e:
+                pygame.mixer.music.load(temp_filename)
+                pygame.mixer.music.play()
+            except pygame.error as e:
                 # Use after() to ensure messagebox is shown from the main thread
                 self.after(0, lambda: messagebox.showerror("Playback Error", f"An error occurred during audio playback:\n\n{e}"))
             finally:
+                # Stop music to release the file before deleting
+                pygame.mixer.music.stop()
                 os.remove(temp_filename)
 
         # UI changes
