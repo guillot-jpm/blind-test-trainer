@@ -27,15 +27,24 @@ def quiz_view(root_window, mock_controller):
          patch('src.gui.quiz_view_frame.srs_service') as mock_srs_service, \
          patch('src.gui.quiz_view_frame.QuizSession') as mock_quiz_session:
 
+        # Configure the mock session object
+        mock_session_instance = mock_quiz_session.return_value
+        mock_session_instance.get_session_progress.return_value = (2, 10)
+        # Ensure get_current_song returns a valid song dictionary for the next question
+        mock_session_instance.get_current_song.return_value = {
+            'song_id': 456, 'title': 'Next Song', 'artist': 'Next Artist'
+        }
+
         # Make the QuizView's parent the root_window to satisfy tkinter
         view = QuizView(parent=root_window, controller=mock_controller)
 
-        # Set up mocks
-        view.session = mock_quiz_session.return_value
+        # Set up mocks on the view instance
+        view.session = mock_session_instance
+        # Set the song for the test that is *currently* running
         view.current_song = {'song_id': 123, 'title': 'Test Song', 'artist': 'Tester'}
         view.reaction_time = 5.5
 
-        # Attach mocks to the instance for access in tests
+        # Attach mocks to the instance for easy access in tests
         view.mock_song_lib = mock_song_lib
         view.mock_db_manager = mock_db_manager
         view.mock_srs_service = mock_srs_service
