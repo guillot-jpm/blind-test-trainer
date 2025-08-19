@@ -18,17 +18,34 @@ class MainMenuFrame(tk.Frame):
         super().__init__(parent)
         self.controller = controller
 
+        # --- Style Configuration ---
+        style = ttk.Style()
+        style.configure(
+            "MainMenu.TButton",
+            font=self.controller.button_font,
+            padding=10
+        )
+
         # --- Main Container ---
         main_container = tk.Frame(self)
         main_container.pack(expand=True)
 
+        # --- Title ---
+        title_label = tk.Label(
+            main_container,
+            text="Blind Test Trainer",
+            font=self.controller.title_font
+        )
+        title_label.pack(pady=(20, 10))
+
         # --- Statistics Section (Placeholder) ---
-        stats_frame = ttk.LabelFrame(main_container, text="Summary Statistics", padding="10")
-        stats_frame.pack(pady=20, padx=20, fill="x")
+        stats_frame = ttk.LabelFrame(main_container, text="Summary Statistics", padding="20")
+        stats_frame.pack(pady=10, padx=20, fill="x")
 
         stats_label = tk.Label(
             stats_frame,
             text="Detailed summary statistics will be displayed here.\n(As per US 6.2)",
+            font=self.controller.body_font,
             justify="center",
             pady=10
         )
@@ -39,6 +56,7 @@ class MainMenuFrame(tk.Frame):
             main_container,
             text="Start Standard Session",
             command=self.start_standard_session,
+            style="MainMenu.TButton",
             width=30
         )
         start_standard_button.pack(pady=10)
@@ -47,6 +65,7 @@ class MainMenuFrame(tk.Frame):
             main_container,
             text="Start Challenge Session",
             command=self.start_challenge_session,
+            style="MainMenu.TButton",
             width=30
         )
         start_challenge_button.pack(pady=10)
@@ -56,6 +75,7 @@ class MainMenuFrame(tk.Frame):
             main_container,
             text="Manage My Library",
             command=self.manage_library,
+            style="MainMenu.TButton",
             width=30
         )
         manage_library_button.pack(pady=20)

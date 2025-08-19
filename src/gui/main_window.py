@@ -26,7 +26,12 @@ class MainWindow(tk.Tk):
         """
         super().__init__()
         self.title("Blind Test Trainer")
-        self.geometry("400x300")
+        self.geometry("500x550")
+
+        # --- Font configuration ---
+        self.title_font = ("Helvetica", 18, "bold")
+        self.body_font = ("Helvetica", 12)
+        self.button_font = ("Helvetica", 12, "bold")
 
         try:
             db_path = config.get("Paths", "database_file")
