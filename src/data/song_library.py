@@ -94,6 +94,18 @@ def get_all_songs():
     return cursor.fetchall()
 
 
+def get_all_song_ids():
+    """
+    Retrieves a list of all song_ids from the library.
+
+    Returns:
+        list: A list of all song_id integers.
+    """
+    cursor = get_cursor()
+    cursor.execute("SELECT song_id FROM songs")
+    return [item[0] for item in cursor.fetchall()]
+
+
 def get_srs_data(song_id):
     """
     Retrieves the spaced repetition data for a specific song.

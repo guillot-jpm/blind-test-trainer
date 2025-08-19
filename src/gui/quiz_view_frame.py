@@ -117,25 +117,45 @@ class QuizView(tk.Frame):
 
     def start_new_quiz(self, mode: str):
         """
-        Starts a new quiz session.
-        This method is called by the main menu before switching to this frame.
+        Starts a new quiz session based on the selected mode.
+
         Args:
             mode (str): The selected quiz mode ('Standard' or 'Challenge').
         """
-        self.session = None  # Reset session in case of failure
-        due_songs = song_library.get_due_songs()
-        if not due_songs:
-            messagebox.showinfo(
-                "No Songs Due",
-                "No songs are due for review today. Great job!"
+        self.session = None  # Reset session
+        song_ids_for_quiz = []
+
+        if mode == "Standard":
+            song_ids_for_quiz = song_library.get_due_songs()
+            if not song_ids_for_quiz:
+                messagebox.showinfo(
+                    "No Songs Due",
+                    "No songs are due for review today. Great job!"
+                )
+                return
+            random.shuffle(song_ids_for_quiz)
+
+        elif mode == "Challenge":
+            all_song_ids = song_library.get_all_song_ids()
+            total_songs = len(all_song_ids)
+
+            if total_songs == 0:
+                messagebox.showinfo(
+                    "Empty Library",
+                    "Your library is empty. Please add songs before starting a challenge."
+                )
+                return
+
+            song_count_config = config.getint(
+                'Settings',
+                'CHALLENGE_MODE_SONG_COUNT',
+                fallback=20  # Fallback in case the value is missing
             )
-            self.controller.show_frame("MainMenuFrame")
-            return
 
-        # Shuffle the list of due songs for variety
-        random.shuffle(due_songs)
+            num_to_select = min(song_count_config, total_songs)
+            song_ids_for_quiz = random.sample(all_song_ids, num_to_select)
 
-        self.session = QuizSession(song_ids=due_songs, mode=mode)
+        self.session = QuizSession(song_ids=song_ids_for_quiz, mode=mode)
         self.prepare_next_question()
 
     def prepare_next_question(self):
