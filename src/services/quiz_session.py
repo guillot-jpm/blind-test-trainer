@@ -7,12 +7,13 @@ class QuizSession:
     Manages the state of a single quiz session.
     """
 
-    def __init__(self, song_ids: list[int]):
+    def __init__(self, song_ids: list[int], mode: str = "Standard"):
         """
         Initializes a new quiz session.
 
         Args:
-            song_ids (list[int]): A list of song IDs to be included in the quiz.
+            song_ids (list[int]): A list of song IDs for the quiz.
+            mode (str): The quiz mode ('Standard' or 'Challenge').
         """
         if not song_ids:
             raise ValueError("Cannot start a quiz with no songs.")
@@ -22,6 +23,7 @@ class QuizSession:
         self.total_questions = len(self.song_ids)
         self.current_question_index = 0
         self.score = 0
+        self.mode = mode
 
     def get_current_song(self):
         """
@@ -77,3 +79,13 @@ class QuizSession:
             bool: True if all questions have been presented, False otherwise.
         """
         return self.current_question_index >= self.total_questions
+
+    def record_result(self, was_correct: bool):
+        """
+        Records the result of a question and updates the score.
+
+        Args:
+            was_correct (bool): True if the user answered correctly.
+        """
+        if was_correct:
+            self.score += 1

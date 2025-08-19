@@ -17,10 +17,31 @@ class MainMenuFrame(tk.Frame):
         """
         super().__init__(parent)
         self.controller = controller
+        self.quiz_mode = tk.StringVar(value="Challenge")
 
         # --- UI Components ---
         label = tk.Label(self, text="Main Menu", font=("Arial", 18))
         label.pack(pady=20)
+
+        # --- Mode Selection ---
+        mode_frame = tk.LabelFrame(self, text="Quiz Mode", padx=10, pady=10)
+        mode_frame.pack(pady=10, padx=20, fill="x")
+
+        challenge_radio = tk.Radiobutton(
+            mode_frame,
+            text="Challenge Mode (Score is tracked)",
+            variable=self.quiz_mode,
+            value="Challenge"
+        )
+        challenge_radio.pack(anchor="w")
+
+        standard_radio = tk.Radiobutton(
+            mode_frame,
+            text="Standard Mode (Simple practice)",
+            variable=self.quiz_mode,
+            value="Standard"
+        )
+        standard_radio.pack(anchor="w")
 
         start_quiz_button = tk.Button(
             self,
@@ -38,12 +59,14 @@ class MainMenuFrame(tk.Frame):
 
     def start_quiz(self):
         """
-        Starts a new quiz.
+        Starts a new quiz with the selected mode.
         """
         quiz_view = self.controller.frames["QuizView"]
-        quiz_view.start_new_quiz()
-        # The start_new_quiz method will switch to the main menu
-        # if there are no songs, so we only switch if it doesn't.
+        selected_mode = self.quiz_mode.get()
+        quiz_view.start_new_quiz(mode=selected_mode)
+
+        # The start_new_quiz method will handle showing the main menu
+        # if there are no songs due.
         if quiz_view.session:
             self.controller.show_frame("QuizView")
 
