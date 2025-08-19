@@ -139,21 +139,39 @@ class QuizView(tk.Frame):
             try:
                 pygame.mixer.music.load(temp_filename)
                 pygame.mixer.music.play()
+                while pygame.mixer.music.get_busy():
+                    time.sleep(0.1)
             except pygame.error as e:
-                # Use after() to ensure messagebox is shown from the main thread
                 self.after(0, lambda: messagebox.showerror("Playback Error", f"An error occurred during audio playback:\n\n{e}"))
             finally:
-                # Stop music to release the file before deleting
                 pygame.mixer.music.stop()
                 os.remove(temp_filename)
+                # Unbind the spacebar in the main thread
+                self.after(0, self.unbind_spacebar)
 
         # UI changes
         self.play_song_button.grid_forget()
         self.prompt_label.grid(row=0, column=0, sticky="nsew")
 
+        # Bind spacebar to the handler
+        self.controller.bind("<space>", self.handle_spacebar_press)
+
         # Start timer and playback
         self.start_time = time.time()
         threading.Thread(target=playback, daemon=True).start()
+
+    def handle_spacebar_press(self, event=None):
+        """
+        Handles the spacebar press event to stop the music.
+        """
+        if pygame.mixer.music.get_busy():
+            pygame.mixer.music.stop()
+
+    def unbind_spacebar(self):
+        """
+        Unbinds the spacebar from the controller.
+        """
+        self.controller.unbind("<space>")
 
     def show_quiz_results(self):
         """
