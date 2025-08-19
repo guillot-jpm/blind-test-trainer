@@ -102,18 +102,21 @@ class QuizView(tk.Frame):
         )
         self.quit_button.pack(side="right")
 
-    def start_new_quiz(self):
+    def start_new_quiz(self, mode: str):
         """
         Starts a new quiz session.
         This method is called by the main menu before switching to this frame.
+        Args:
+            mode (str): The selected quiz mode ('Standard' or 'Challenge').
         """
+        self.session = None  # Reset session in case of failure
         due_songs = song_library.get_due_songs()
         if not due_songs:
             messagebox.showinfo("No Songs Due", "There are no songs due for review today!")
             self.controller.show_frame("MainMenuFrame")
             return
 
-        self.session = QuizSession(song_ids=due_songs)
+        self.session = QuizSession(song_ids=due_songs, mode=mode)
         self.prepare_next_question()
 
     def prepare_next_question(self):
@@ -156,7 +159,10 @@ class QuizView(tk.Frame):
             print(f"Error recording play history: {e}")
             messagebox.showerror("Database Error", "Failed to save your progress. Please check the logs.")
 
-        # 2. Update SRS data
+        # 2. Record the result in the session
+        self.session.record_result(was_correct)
+
+        # 3. Update SRS data
         try:
             new_interval, new_ease, next_review = srs_service.calculate_next_srs_review(
                 song_id=song_id,
@@ -166,13 +172,13 @@ class QuizView(tk.Frame):
         except Exception as e:
             print(f"Error updating SRS data: {e}")
             messagebox.showerror("SRS Error", "Failed to update learning data. Please check the logs.")
+            return # Don't proceed if there's an error
 
-        # 3. Proceed to the next question
+        # 4. Proceed to the next question
         self.proceed_to_next_song()
 
     def proceed_to_next_song(self):
-        """Processes the user's feedback and moves to the next song."""
-        # This is where scoring logic will go in a future user story.
+        """Advances the session and prepares the next question."""
         self.session.next_song()
         self.prepare_next_question()
 
@@ -297,8 +303,14 @@ class QuizView(tk.Frame):
 
     def show_quiz_results(self):
         """
-        Displays the results at the end of the quiz.
+        Displays the results at the end of the quiz based on the mode.
         """
-        # Placeholder for showing results.
-        messagebox.showinfo("Quiz Finished", f"You completed the quiz! Your score: {self.session.score}")
+        if self.session.mode == "Challenge":
+            score = self.session.score
+            total = self.session.total_questions
+            message = f"Session Complete! You scored {score}/{total}."
+            messagebox.showinfo("Challenge Mode Complete", message)
+        else:
+            messagebox.showinfo("Session Complete!", "Session Complete!")
+
         self.controller.show_frame("MainMenuFrame")
