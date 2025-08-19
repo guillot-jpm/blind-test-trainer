@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 
 from src.gui.main_menu_frame import MainMenuFrame
 from src.gui.quiz_view_frame import QuizView
@@ -26,12 +26,17 @@ class MainWindow(tk.Tk):
         """
         super().__init__()
         self.title("Blind Test Trainer")
-        self.geometry("500x550")
+        self.geometry("550x550")
 
-        # --- Font configuration ---
-        self.title_font = ("Helvetica", 18, "bold")
-        self.body_font = ("Helvetica", 12)
-        self.button_font = ("Helvetica", 12, "bold")
+        # --- Style and Font configuration ---
+        self.style = ttk.Style(self)
+        self.title_font = ("Ubuntu", 18, "bold")
+        self.body_font = ("Ubuntu", 12)
+        self.button_font = ("Ubuntu", 12, "bold")
+
+        # Configure ttk styles
+        self.style.configure("MainMenu.TButton", font=self.button_font)
+        self.style.configure("Stats.TLabel", font=self.body_font)
 
         try:
             db_path = config.get("Paths", "database_file")
@@ -72,8 +77,16 @@ class MainWindow(tk.Tk):
         self.show_frame("MainMenuFrame")
 
     def show_frame(self, page_name):
-        """Raises the specified frame to the top of the stacking order."""
+        """
+        Raises the specified frame to the top of the stacking order.
+        If the target frame is the MainMenuFrame, its statistics are refreshed.
+        """
         frame = self.frames[page_name]
+
+        # Refresh stats if we are showing the main menu
+        if page_name == "MainMenuFrame":
+            frame.update_statistics()
+
         frame.tkraise()
 
     def on_close(self):
