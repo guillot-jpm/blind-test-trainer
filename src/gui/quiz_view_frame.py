@@ -32,6 +32,8 @@ class QuizView(tk.Frame):
         self.session = None
         self.current_song = None
         self.start_time = 0
+        self.reaction_time = 0.0
+        self.space_was_pressed = False
 
         # Initialize pygame mixer
         pygame.mixer.init()
@@ -62,6 +64,33 @@ class QuizView(tk.Frame):
             command=self.play_song_and_start_round
         )
         self.play_song_button.grid(row=0, column=0, sticky="nsew")
+
+        # --- Answer Reveal Widgets (initially hidden) ---
+        self.answer_reveal_frame = tk.Frame(self.center_region)
+
+        self.answer_label = tk.Label(
+            self.answer_reveal_frame,
+            text="",
+            font=("Arial", 16)
+        )
+        self.answer_label.pack(pady=20)
+
+        buttons_frame = tk.Frame(self.answer_reveal_frame)
+        buttons_frame.pack(pady=10)
+
+        self.correct_button = tk.Button(
+            buttons_frame,
+            text="I Knew It!",
+            command=self.proceed_to_next_song
+        )
+        self.correct_button.pack(side="left", padx=10)
+
+        self.incorrect_button = tk.Button(
+            buttons_frame,
+            text="Didn't Get It",
+            command=self.proceed_to_next_song
+        )
+        self.incorrect_button.pack(side="right", padx=10)
 
 
         # --- Bottom Region Widgets ---
@@ -100,9 +129,16 @@ class QuizView(tk.Frame):
         q_num, total_q = self.session.get_session_progress()
         self.status_label.config(text=f"Question {q_num} of {total_q}")
 
-        # Reset center region
+        # Reset center region for the next question
+        self.answer_reveal_frame.grid_forget()
         self.prompt_label.grid_forget()
         self.play_song_button.grid(row=0, column=0, sticky="nsew")
+
+    def proceed_to_next_song(self):
+        """Processes the user's feedback and moves to the next song."""
+        # This is where scoring logic will go in a future user story.
+        self.session.next_song()
+        self.prepare_next_question()
 
     def play_song_and_start_round(self):
         """
@@ -144,17 +180,29 @@ class QuizView(tk.Frame):
             except pygame.error as e:
                 self.after(0, lambda: messagebox.showerror("Playback Error", f"An error occurred during audio playback:\n\n{e}"))
             finally:
-                pygame.mixer.music.stop()
+                # This block runs when the music stops for any reason.
+                pygame.mixer.music.stop()  # Safeguard stop
                 os.remove(temp_filename)
-                # Unbind the spacebar in the main thread
-                self.after(0, self.unbind_spacebar)
+
+                def transition_if_needed():
+                    # If space was not pressed, the song finished naturally.
+                    # We need to unbind the key and move to the answer state.
+                    if not self.space_was_pressed:
+                        self.unbind_spacebar()
+                        print("Song finished naturally.")
+                        self.reaction_time = -1  # Indicate timeout
+                        self.show_answer_reveal_state()
+
+                # All UI updates must be done in the main thread.
+                self.after(0, transition_if_needed)
 
         # UI changes
         self.play_song_button.grid_forget()
         self.prompt_label.grid(row=0, column=0, sticky="nsew")
 
-        # Bind spacebar to the handler
+        # Bind spacebar to the handler and reset the flag for the new round
         self.controller.bind("<space>", self.handle_spacebar_press)
+        self.space_was_pressed = False
 
         # Start timer and playback
         self.start_time = time.time()
@@ -162,16 +210,48 @@ class QuizView(tk.Frame):
 
     def handle_spacebar_press(self, event=None):
         """
-        Handles the spacebar press event to stop the music.
+        Handles the spacebar press event.
+        Stops the timer, fades out the music, and shows the answer.
         """
-        if pygame.mixer.music.get_busy():
-            pygame.mixer.music.stop()
+        # This check prevents the handler from running if the song has ended
+        # and the spacebar is pressed before the unbind call is processed.
+        if not pygame.mixer.music.get_busy():
+            return
+
+        self.space_was_pressed = True
+
+        # 1. Stop timer and store reaction time
+        reaction_time = time.time() - self.start_time
+        self.reaction_time = round(reaction_time, 2)
+        print(f"Reaction time: {self.reaction_time} seconds")  # For debugging
+
+        # 2. Unbind spacebar to prevent multiple presses
+        self.unbind_spacebar()
+
+        # 3. Fade out music (this will also stop playback)
+        pygame.mixer.music.fadeout(500)
+
+        # 4. Transition to the answer reveal state
+        self.after(500, self.show_answer_reveal_state)
 
     def unbind_spacebar(self):
         """
         Unbinds the spacebar from the controller.
         """
         self.controller.unbind("<space>")
+
+    def show_answer_reveal_state(self):
+        """
+        Transitions the UI to show the song answer and user response options.
+        """
+        self.prompt_label.grid_forget()
+
+        # Update and show the answer label
+        song_info = f"{self.current_song['title']} - {self.current_song['artist']}"
+        self.answer_label.config(text=song_info)
+
+        # Show the answer frame
+        self.answer_reveal_frame.grid(row=0, column=0, sticky="nsew")
 
     def show_quiz_results(self):
         """
