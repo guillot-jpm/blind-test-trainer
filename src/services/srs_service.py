@@ -51,6 +51,31 @@ def _calculate_srs_for_correct_answer(srs_data: tuple, reaction_time: float):
     return final_new_interval_days, new_ease_factor, next_review_date
 
 
+def _calculate_srs_for_wrong_answer(srs_data: tuple):
+    """
+    Calculates the next SRS parameters for a song the user failed to identify.
+
+    Args:
+        srs_data (tuple): The current SRS data for the song from the database.
+                          Expected format: (song_id, current_interval_days, ease_factor, next_review_date)
+
+    Returns:
+        tuple: A tuple containing (new_interval_days, new_ease_factor, next_review_date).
+    """
+    _, _, ease_factor, _ = srs_data
+
+    # Reset the interval to 1 day.
+    new_interval_days = 1
+
+    # Reduce the ease factor, with a minimum clamp.
+    new_ease_factor = max(1.3, ease_factor - 0.2)
+
+    # The next review is tomorrow.
+    next_review_date = date.today() + timedelta(days=1)
+
+    return new_interval_days, new_ease_factor, next_review_date
+
+
 def calculate_next_srs_review(song_id: int, was_correct: bool, reaction_time: float):
     """
     Calculates the next review date and other SRS parameters for a song.
@@ -72,9 +97,4 @@ def calculate_next_srs_review(song_id: int, was_correct: bool, reaction_time: fl
     if was_correct:
         return _calculate_srs_for_correct_answer(srs_data, reaction_time)
     else:
-        # If wrong, reset the interval to 1 day
-        new_interval = 1
-        # The ease factor is not changed when the answer is wrong (as per current scope).
-        new_ease_factor = srs_data[2]  # ease_factor from the tuple
-        next_review_date = date.today() + timedelta(days=1)
-        return new_interval, new_ease_factor, next_review_date
+        return _calculate_srs_for_wrong_answer(srs_data)
