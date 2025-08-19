@@ -135,6 +135,9 @@ class QuizView(tk.Frame):
             snippet.export(temp_filename, format="wav")
             try:
                 playsound(temp_filename)
+            except Exception as e:
+                # Use after() to ensure messagebox is shown from the main thread
+                self.after(0, lambda: messagebox.showerror("Playback Error", f"An error occurred during audio playback:\n\n{e}"))
             finally:
                 os.remove(temp_filename)
 
