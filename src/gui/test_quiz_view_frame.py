@@ -85,7 +85,8 @@ def test_handle_user_response_correct(quiz_view):
     # 2. Check if SRS calculation was called
     quiz_view.mock_srs_service.calculate_next_srs_review.assert_called_once_with(
         song_id=song_id,
-        was_correct=was_correct
+        was_correct=was_correct,
+        reaction_time=reaction_time
     )
 
     # 3. Check if SRS data was updated in the database
@@ -186,7 +187,8 @@ def test_handle_user_response_incorrect(quiz_view):
     )
     quiz_view.mock_srs_service.calculate_next_srs_review.assert_called_once_with(
         song_id=song_id,
-        was_correct=was_correct
+        was_correct=was_correct,
+        reaction_time=reaction_time
     )
     quiz_view.mock_song_lib.update_srs_data.assert_called_once_with(
         song_id, 1, 2.4, '2025-01-02'
