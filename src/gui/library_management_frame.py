@@ -30,6 +30,7 @@ class LibraryManagementFrame(ttk.Frame):
         self.import_session_files = []
         self.current_import_index = -1
         self.songs_added_in_session = 0
+        self.import_running = False
 
         # --- Style for preview text area ---
         self.controller.style.configure("Preview.TText",
@@ -431,19 +432,18 @@ class LibraryManagementFrame(ttk.Frame):
             self.add_to_library_button.config(state="disabled")
 
 
-    def _add_to_library(self):
+    def _add_to_library(self, is_import_mode=False):
         """
         Adds the previewed song to the library.
         If in an import session, it automatically loads the next song.
         Otherwise, it resets the UI for manual entry.
         """
         if not self.preview_data:
-            messagebox.showerror("Error", "No song data to add. Please search first.")
-            return
+            if not is_import_mode: # Only show error for manual adds
+                messagebox.showerror("Error", "No song data to add. Please search first.")
+            return False # Indicate failure
 
-        is_import_mode = self.current_import_index != -1
         song_added_successfully = False
-
         try:
             add_song(
                 title=self.preview_data['title'],
@@ -452,39 +452,37 @@ class LibraryManagementFrame(ttk.Frame):
                 spotify_id=self.preview_data['spotify_id'],
                 local_filename=self.preview_data['local_filename']
             )
-            # If the above line doesn't raise an exception, the song was added.
             song_added_successfully = True
             if is_import_mode:
                 self.songs_added_in_session += 1
 
         except DuplicateSongError:
-            messagebox.showerror("Duplicate Song", "This song already exists in the library.")
-            # In import mode, we just show the error and proceed to the next song.
-            # In manual mode, we do nothing further.
-            pass
-        except Exception as e:
-            messagebox.showerror("Database Error", f"An unexpected error occurred: {e}")
-            # For any other database error, we stop and don't proceed.
-            return
+             # In import mode, we just log this silently.
+             # In manual mode, we show an error.
+            if not is_import_mode:
+                messagebox.showerror("Duplicate Song", "This song already exists in the library.")
+            pass # Treat as "handled" for the import loop.
 
-        # --- Post-Add Logic ---
-        if is_import_mode:
-            # For both success and duplicate errors, we advance to the next file.
-            self.current_import_index += 1
-            self._load_song_for_import()
-        elif song_added_successfully:
-            # In manual mode, we only reset the form upon a successful add.
+        except Exception as e:
+            if not is_import_mode:
+                messagebox.showerror("Database Error", f"An unexpected error occurred: {e}")
+            return False # Indicate failure
+
+        # --- Post-Add Logic for Manual Mode ---
+        if not is_import_mode and song_added_successfully:
             self._populate_treeview()
             self._update_preview_area(
                 f"Success! Added '{self.preview_data['title']}'.",
-                is_error=False,
-                is_temporary=True
+                is_error=False, is_temporary=True
             )
+            # Reset form
             self.add_to_library_button.config(state="disabled")
             self.local_filename_entry.delete(0, tk.END)
             self.song_title_entry.delete(0, tk.END)
             self.artist_entry.delete(0, tk.END)
             self.preview_data = {}
+
+        return song_added_successfully
 
     def _start_import_session(self):
         """
@@ -513,6 +511,8 @@ class LibraryManagementFrame(ttk.Frame):
         self.import_session_files = new_files
         self.current_import_index = 0
         self.songs_added_in_session = 0
+        self.import_running = True
+
 
         # --- Update UI for Import Mode ---
         # Hide normal view widgets
@@ -522,40 +522,64 @@ class LibraryManagementFrame(ttk.Frame):
         self.edit_button.pack_forget()
         self.delete_button.pack_forget()
 
-        # Re-configure the 'Add Song' form buttons for import
+        # Hide all form buttons initially
         self.search_preview_button.pack_forget()
-        self.add_to_library_button.pack_forget() # Temporarily remove to re-order
+        self.add_to_library_button.pack_forget()
+        self.skip_button.pack_forget()
+        self.stop_button.pack_forget() # pack_forget just in case
 
         # Show import-specific widgets
         self.import_status_label.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
-
-        # Add buttons in the new order for import mode
-        self.add_to_library_button.pack(side="left")
-        self.skip_button.pack(side="left", padx=5)
         self.stop_button.pack(side="left")
 
-        # Load the first song to be imported
+        # Start the import loop
+        self._run_import_loop()
+
+    def _run_import_loop(self):
+        """
+        The main loop for the automated import process.
+        Processes one song and then schedules the next iteration.
+        """
+        # Condition to stop the loop
+        if not self.import_running or self.current_import_index >= len(self.import_session_files):
+            if self.import_running: # If loop finished naturally
+                messagebox.showinfo(
+                    "Import Complete",
+                    f"Import complete! Added {self.songs_added_in_session} new songs."
+                )
+            # Stop regardless of why we exited
+            self._stop_import()
+            return
+
+        # Process the current file
         self._load_song_for_import()
+        self._search_and_preview()
+
+        # The `_search_and_preview` is synchronous, but the UI updates.
+        # Now, attempt to add the song to the library.
+        # `preview_data` is set by `_search_and_preview`.
+        if self.preview_data:
+            self._add_to_library(is_import_mode=True)
+        # If no preview data, it's an effective skip.
+
+        # Advance to the next file
+        self.current_import_index += 1
+
+        # Schedule the next iteration
+        self.after(50, self._run_import_loop) # Small delay for UI responsiveness
 
     def _load_song_for_import(self):
         """
         Loads the current song from the import session into the 'Add New Song' form.
         It updates the status label and pre-fills the entry fields.
         """
-        if self.current_import_index >= len(self.import_session_files):
-            self._stop_import()
-            messagebox.showinfo(
-                "Import Complete",
-                f"Import complete! Added {self.songs_added_in_session} new songs."
-            )
-            return
-
         # Update status label
         total_files = len(self.import_session_files)
         current_num = self.current_import_index + 1
-        self.import_status_label.config(
-            text=f"Importing file {current_num} of {total_files}."
-        )
+        status_text = f"Importing file {current_num} of {total_files}..."
+        self.import_status_label.config(text=status_text)
+        self._update_preview_area(status_text) # Also show in preview
+        self.update_idletasks() # Force UI update
 
         # Get file path and pre-fill form
         full_path = self.import_session_files[self.current_import_index]
@@ -572,16 +596,17 @@ class LibraryManagementFrame(ttk.Frame):
         self.song_title_entry.insert(0, title_guess)
 
         self.artist_entry.delete(0, tk.END)
-        self._update_preview_area("")
+        self.preview_data = {} # Clear previous preview data
         self.add_to_library_button.config(state="disabled")
 
-        # Automatically trigger a search for the new song's details
-        self._search_and_preview()
 
     def _skip_file(self):
         """
         Skips the current file and loads the next one in the import session.
+        (This is no longer used in the automated loop but kept for potential future use)
         """
+        if not self.import_running:
+            return
         self.current_import_index += 1
         self._load_song_for_import()
 
@@ -589,6 +614,8 @@ class LibraryManagementFrame(ttk.Frame):
         """
         Stops the import session and restores the normal library view.
         """
+        self.import_running = False # Signal the loop to stop
+
         # --- Exit Import Mode ---
         self.import_session_files = []
         self.current_import_index = -1
@@ -596,9 +623,10 @@ class LibraryManagementFrame(ttk.Frame):
         # --- Restore UI to Normal View ---
         # Hide import-specific widgets
         self.import_status_label.grid_remove()
-        self.skip_button.pack_forget()
         self.stop_button.pack_forget()
-        self.add_to_library_button.pack_forget() # Temporarily remove to re-order
+        # Ensure these are also hidden in case they were somehow visible
+        self.skip_button.pack_forget()
+        self.add_to_library_button.pack_forget()
 
         # Restore normal view widgets
         self.search_bar_frame.grid()
