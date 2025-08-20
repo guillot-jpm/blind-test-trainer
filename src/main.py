@@ -10,14 +10,15 @@ from src.services.spotify_service import initialize_spotify_service
 
 # Configure logging
 logging.basicConfig(
-    level=logging.WARNING,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    filename='app.log',
-    filemode='a'  # 'a' for append
+    level=logging.INFO,
+    format="[%(asctime)s] [%(levelname)s]: %(message)s",
+    filename="app.log",
+    filemode="a",  # 'a' for append
 )
 
 
 if __name__ == "__main__":
+    logging.info("Application started.")
     try:
         # 1. Load application configuration
         new_config_created = load_config()

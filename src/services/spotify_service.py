@@ -9,6 +9,7 @@ import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from thefuzz import fuzz
 from configparser import NoSectionError, NoOptionError
+import logging
 from src.utils.config_manager import config
 
 
@@ -40,7 +41,10 @@ def initialize_spotify_service():
         print("Spotify service initialized successfully.")
 
     except (NoSectionError, NoOptionError, SpotifyAPIError) as e:
-        print(f"Spotify service could not be initialized: {e}")
+        logging.error(
+            "Failure to connect to the MusicBrainz API, including the error "
+            f"reason: {e}"
+        )
         spotify = None
 
 
@@ -65,6 +69,10 @@ def search_by_title(title):
         return _format_track(best_match_track)
 
     except spotipy.exceptions.SpotifyException as e:
+        logging.error(
+            "Failure to connect to the MusicBrainz API, including the error "
+            f"reason: {e}"
+        )
         raise SpotifyAPIError(f"Spotify API search failed: {e}") from e
 
 
@@ -97,6 +105,10 @@ def search_by_title_and_artist(title, artist):
         return _format_track(best_match_track)
 
     except spotipy.exceptions.SpotifyException as e:
+        logging.error(
+            "Failure to connect to the MusicBrainz API, including the error "
+            f"reason: {e}"
+        )
         raise SpotifyAPIError(f"Spotify API search failed: {e}") from e
 
 
@@ -113,6 +125,10 @@ def get_track_by_id(track_id):
             return None
         return _format_track(track)
     except spotipy.exceptions.SpotifyException as e:
+        logging.error(
+            "Failure to connect to the MusicBrainz API, including the error "
+            f"reason: {e}"
+        )
         # This can happen if the ID is invalid or not found
         raise SpotifyAPIError(f"Failed to get track by ID '{track_id}': {e}") from e
 

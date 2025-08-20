@@ -255,8 +255,11 @@ class QuizView(ttk.Frame):
 
         try:
             song_audio = AudioSegment.from_file(file_path)
-        except (FileNotFoundError, CouldntDecodeError) as e:
-            logging.warning(f"Could not load audio file '{self.current_song['local_filename']}'. Error: {e}")
+        except (FileNotFoundError, CouldntDecodeError):
+            logging.warning(
+                "Skipped a quiz question due to a missing audio file "
+                f"'{self.current_song['local_filename']}'."
+            )
             self.show_skip_message()
             self.after(50, self.proceed_to_next_song)
             return
