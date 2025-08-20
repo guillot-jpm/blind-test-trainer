@@ -29,16 +29,23 @@ def test_get_all_songs_for_view(db_connection_extended):
     assert song_view['release_year'] == 2023
     assert song_view['next_review_date'] == date.today()
 
-def test_update_song_spotify_id(db_connection_extended):
-    """Test updating a song's Spotify ID."""
-    song_id = song_library.add_song("Update Song", "Update Artist", 2023, "update.mp3", spotify_id="old_id")
+def test_update_song_details(db_connection_extended):
+    """Test updating a song's details."""
+    song_id = song_library.add_song("Old Title", "Old Artist", 2000, "update.mp3", spotify_id="old_id")
 
-    new_id = "new_spotify_id_123"
-    song_library.update_song_spotify_id(song_id, new_id)
+    new_title = "New Title"
+    new_artist = "New Artist"
+    new_year = 2024
+    new_spotify_id = "new_id_456"
+
+    song_library.update_song_details(song_id, new_title, new_artist, new_year, new_spotify_id)
 
     updated_song = song_library.get_song_by_id(song_id)
     assert updated_song is not None
-    assert updated_song[7] == new_id # spotify_id is the 8th column (index 7)
+    assert updated_song[1] == new_title
+    assert updated_song[2] == new_artist
+    assert updated_song[3] == new_year
+    assert updated_song[7] == new_spotify_id
 
 def test_delete_songs_by_id(db_connection_extended):
     """Test deleting songs by their IDs."""

@@ -9,7 +9,7 @@ from src.data.song_library import (
     DuplicateSongError,
     get_all_songs_for_view,
     delete_songs_by_id,
-    update_song_spotify_id,
+    update_song_details,
 )
 
 
@@ -224,32 +224,61 @@ class LibraryManagementFrame(tk.Frame):
 
     def _edit_selected_song(self):
         """
-        Opens a dialog to edit the Spotify ID of the selected song.
+        Opens a dialog to edit the selected song by providing a new Spotify ID.
+        Fetches new metadata from Spotify and updates the local database.
         """
         selected_items = self.tree.selection()
         if not selected_items:
             return
 
-        song_id = selected_items[0]
+        song_id_str = selected_items[0]
+        song_id = int(song_id_str)
 
-        # Get current spotify ID to show in prompt
-        selected_song_data = next((song for song in self.all_songs if str(song['song_id']) == song_id), None)
-        current_spotify_id = selected_song_data.get('spotify_id', '') if selected_song_data else ''
+        # Find the current Spotify ID to pre-fill the dialog
+        selected_song = next((s for s in self.all_songs if s['song_id'] == song_id), None)
+        current_spotify_id = selected_song.get('spotify_id', '') if selected_song else ''
 
         new_spotify_id = simpledialog.askstring(
-            "Edit Spotify ID",
+            "Edit Song via Spotify ID",
             "Enter the correct Spotify Track ID:",
             initialvalue=current_spotify_id,
             parent=self
         )
 
-        if new_spotify_id and new_spotify_id.strip():
-            try:
-                update_song_spotify_id(int(song_id), new_spotify_id.strip())
-                self._populate_treeview() # Refresh the view
-                messagebox.showinfo("Success", "Spotify ID updated successfully.")
-            except Exception as e:
-                messagebox.showerror("Database Error", f"Failed to update Spotify ID: {e}")
+        if not new_spotify_id or not new_spotify_id.strip():
+            return
+
+        try:
+            # Fetch new track details from Spotify
+            self._update_preview_area("Fetching new song data from Spotify...")
+            self.update_idletasks()
+
+            new_track_info = spotify_service.get_track_by_id(new_spotify_id.strip())
+
+            if not new_track_info:
+                messagebox.showerror("Not Found", f"Could not find a track with ID: {new_spotify_id}")
+                self._update_preview_area("") # Clear preview area
+                return
+
+            # Update the database with the new details
+            update_song_details(
+                song_id=song_id,
+                title=new_track_info['title'],
+                artist=new_track_info['artist'],
+                release_year=new_track_info['release_year'],
+                spotify_id=new_track_info['spotify_id']
+            )
+
+            self._populate_treeview() # Refresh the view
+            self._update_preview_area("") # Clear preview area
+            messagebox.showinfo("Success", "Song details updated successfully.")
+
+        except SpotifyAPIError as e:
+            messagebox.showerror("API Error", f"Could not fetch data from Spotify: {e}")
+            self._update_preview_area("")
+        except Exception as e:
+            messagebox.showerror("Update Error", f"An unexpected error occurred: {e}")
+            self._update_preview_area("")
 
     def _delete_selected_songs(self):
         """

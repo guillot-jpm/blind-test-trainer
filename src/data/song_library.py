@@ -213,24 +213,30 @@ def delete_songs_by_id(song_ids):
         cursor.connection.rollback()
         raise
 
-def update_song_spotify_id(song_id, new_spotify_id):
+def update_song_details(song_id, title, artist, release_year, spotify_id):
     """
-    Updates the Spotify ID for a specific song.
+    Updates the details for a specific song.
 
     Args:
         song_id (int): The ID of the song to update.
-        new_spotify_id (str): The new Spotify ID.
+        title (str): The new title.
+        artist (str): The new artist.
+        release_year (int): The new release year.
+        spotify_id (str): The new Spotify ID.
     """
     try:
         cursor = get_cursor()
         cursor.execute("""
             UPDATE songs
-            SET spotify_id = ?
+            SET title = ?,
+                artist = ?,
+                release_year = ?,
+                spotify_id = ?
             WHERE song_id = ?
-        """, (new_spotify_id, song_id))
+        """, (title, artist, release_year, spotify_id, song_id))
         cursor.connection.commit()
     except sqlite3.Error as e:
-        print(f"Failed to update Spotify ID: {e}")
+        print(f"Failed to update song details: {e}")
         cursor.connection.rollback()
         raise
 
