@@ -29,6 +29,7 @@ class LibraryManagementFrame(ttk.Frame):
         self.preview_data = {}
         self.import_session_files = []
         self.current_import_index = -1
+        self.songs_added_in_session = 0
 
         # --- Style for preview text area ---
         self.controller.style.configure("Preview.TText",
@@ -440,6 +441,9 @@ class LibraryManagementFrame(ttk.Frame):
             messagebox.showerror("Error", "No song data to add. Please search first.")
             return
 
+        is_import_mode = self.current_import_index != -1
+        song_added_successfully = False
+
         try:
             add_song(
                 title=self.preview_data['title'],
@@ -448,36 +452,39 @@ class LibraryManagementFrame(ttk.Frame):
                 spotify_id=self.preview_data['spotify_id'],
                 local_filename=self.preview_data['local_filename']
             )
-
-            # Check if we are in an import session
-            is_import_mode = self.current_import_index != -1
-
+            # If the above line doesn't raise an exception, the song was added.
+            song_added_successfully = True
             if is_import_mode:
-                # In import mode, automatically move to the next song
-                self.current_import_index += 1
-                self._load_song_for_import()
-            else:
-                # In manual mode, refresh view and reset the form
-                self._populate_treeview()
-                self._update_preview_area(
-                    f"Success! Added '{self.preview_data['title']}'.",
-                    is_error=False,
-                    is_temporary=True
-                )
-                self.add_to_library_button.config(state="disabled")
-                self.local_filename_entry.delete(0, tk.END)
-                self.song_title_entry.delete(0, tk.END)
-                self.artist_entry.delete(0, tk.END)
-                self.preview_data = {}
+                self.songs_added_in_session += 1
 
         except DuplicateSongError:
             messagebox.showerror("Duplicate Song", "This song already exists in the library.")
-            # If in import mode, skip the duplicate song and move to the next one
-            if self.current_import_index != -1:
-                self.current_import_index += 1
-                self._load_song_for_import()
+            # In import mode, we just show the error and proceed to the next song.
+            # In manual mode, we do nothing further.
+            pass
         except Exception as e:
             messagebox.showerror("Database Error", f"An unexpected error occurred: {e}")
+            # For any other database error, we stop and don't proceed.
+            return
+
+        # --- Post-Add Logic ---
+        if is_import_mode:
+            # For both success and duplicate errors, we advance to the next file.
+            self.current_import_index += 1
+            self._load_song_for_import()
+        elif song_added_successfully:
+            # In manual mode, we only reset the form upon a successful add.
+            self._populate_treeview()
+            self._update_preview_area(
+                f"Success! Added '{self.preview_data['title']}'.",
+                is_error=False,
+                is_temporary=True
+            )
+            self.add_to_library_button.config(state="disabled")
+            self.local_filename_entry.delete(0, tk.END)
+            self.song_title_entry.delete(0, tk.END)
+            self.artist_entry.delete(0, tk.END)
+            self.preview_data = {}
 
     def _start_import_session(self):
         """
@@ -505,6 +512,7 @@ class LibraryManagementFrame(ttk.Frame):
         # --- Enter Import Mode ---
         self.import_session_files = new_files
         self.current_import_index = 0
+        self.songs_added_in_session = 0
 
         # --- Update UI for Import Mode ---
         # Hide normal view widgets
@@ -536,7 +544,10 @@ class LibraryManagementFrame(ttk.Frame):
         """
         if self.current_import_index >= len(self.import_session_files):
             self._stop_import()
-            messagebox.showinfo("Import Complete", "All new songs have been processed.")
+            messagebox.showinfo(
+                "Import Complete",
+                f"Import complete! Added {self.songs_added_in_session} new songs."
+            )
             return
 
         # Update status label
