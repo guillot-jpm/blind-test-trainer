@@ -16,6 +16,9 @@ database_file = data/quiz_library.db
 # The duration of the audio snippet played during a quiz, in seconds.
 snippet_duration_seconds = 15
 
+# The number of songs to be selected for a Challenge Mode session.
+CHALLENGE_MODE_SONG_COUNT = 20
+
 [Spotify]
 # Spotify API credentials
 # To get these, go to the Spotify Developer Dashboard and create an app.
