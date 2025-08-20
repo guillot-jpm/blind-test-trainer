@@ -36,7 +36,7 @@ class MainWindow(tk.Tk):
         try:
             self.style.theme_use("clam")
         except tk.TclError:
-            print("'clam' theme not available, using default.")
+            logging.warning("'clam' theme not available, using default.")
 
         # Define fonts
         self.title_font = ("Arial", 18, "bold")

@@ -38,7 +38,7 @@ def initialize_spotify_service():
 
         auth_manager = SpotifyClientCredentials(client_id=client_id, client_secret=client_secret)
         spotify = spotipy.Spotify(auth_manager=auth_manager)
-        print("Spotify service initialized successfully.")
+        logging.info("Spotify service initialized successfully.")
 
     except (NoSectionError, NoOptionError, SpotifyAPIError) as e:
         logging.error(

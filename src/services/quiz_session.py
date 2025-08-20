@@ -38,9 +38,6 @@ class QuizSession:
         song_id = self.song_ids[self.current_question_index]
         song_data = song_library.get_song_by_id(song_id)
 
-        # DEBUG: Print the raw tuple from the database
-        print(f"DEBUG: song_data tuple from DB: {song_data}")
-
         # Convert tuple to a more usable dictionary
         if song_data:
             return {
