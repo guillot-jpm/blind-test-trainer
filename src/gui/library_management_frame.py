@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import os
+import unicodedata
 from src.services import spotify_service
 from src.services.file_discovery import find_new_songs
 from src.services.spotify_service import SpotifyAPIError
@@ -215,12 +216,15 @@ class LibraryManagementFrame(ttk.Frame):
 
         # Store all songs to filter locally
         self.all_songs = []
-        self.on_show()
 
     def on_show(self):
         """
         Called when the frame is shown. Refreshes the library view.
         """
+        # Ensure the UI is in the default state and not in an import session.
+        # This prevents the frame from being "stuck" in import mode.
+        self._stop_import()
+
         self._populate_treeview()
         # Reset selection and button states
         self.tree.selection_set()
@@ -500,7 +504,11 @@ class LibraryManagementFrame(ttk.Frame):
 
         # Ensure self.all_songs is up-to-date to get all existing filenames
         self._populate_treeview()
-        existing_filenames = {song['local_filename'] for song in self.all_songs}
+        # Normalize and lowercase for a case-insensitive, robust comparison
+        existing_filenames = {
+            unicodedata.normalize('NFC', song['local_filename'].lower())
+            for song in self.all_songs if 'local_filename' in song and song['local_filename']
+        }
 
         # Find new songs by comparing against the library
         new_files = find_new_songs(music_folder, existing_filenames)
@@ -562,16 +570,11 @@ class LibraryManagementFrame(ttk.Frame):
         full_path = self.import_session_files[self.current_import_index]
         filename = os.path.basename(full_path)
 
-        # Simple parsing: filename without extension as title
-        title_guess = os.path.splitext(filename)[0]
-
         # Reset fields and preview area for the new song
         self.local_filename_entry.delete(0, tk.END)
         self.local_filename_entry.insert(0, filename)
 
         self.song_title_entry.delete(0, tk.END)
-        self.song_title_entry.insert(0, title_guess)
-
         self.artist_entry.delete(0, tk.END)
         self._update_preview_area("")
         self.add_to_library_button.config(state="disabled")

@@ -5,6 +5,7 @@ This module provides functions for discovering new audio files in the user's mus
 """
 
 import os
+import unicodedata
 
 def find_new_songs(music_folder_path, existing_filenames):
     """
@@ -29,8 +30,11 @@ def find_new_songs(music_folder_path, existing_filenames):
         for filename in files:
             # Check if the file has a recognized audio extension
             if any(filename.lower().endswith(ext) for ext in audio_extensions):
+                # Normalize and lowercase the filename for comparison
+                normalized_filename = unicodedata.normalize('NFC', filename.lower())
+
                 # Compare the basename against the existing filenames
-                if filename not in existing_filenames:
+                if normalized_filename not in existing_filenames:
                     full_path = os.path.join(root, filename)
                     # Ensure the path is absolute as per the requirement
                     new_song_paths.append(os.path.abspath(full_path))
