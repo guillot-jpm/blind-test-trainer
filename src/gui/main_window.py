@@ -1,3 +1,5 @@
+import sqlite3
+import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
 
@@ -38,17 +40,18 @@ class MainWindow(tk.Tk):
         self.style.configure("MainMenu.TButton", font=self.button_font)
         self.style.configure("Stats.TLabel", font=self.body_font)
 
+        db_path = config.get("Paths", "database_file")
         try:
-            db_path = config.get("Paths", "database_file")
             connect(db_path)
             initialize_database()
-        except Exception as e:
+        except sqlite3.Error:
             messagebox.showerror(
-                "Application Error",
-                f"An unexpected error occurred during startup:\n{e}",
+                "Fatal Error",
+                f"Fatal Error: Could not connect to the database at {db_path}. "
+                "Please check the file's integrity and permissions."
             )
             self.destroy()
-            return
+            sys.exit(1)
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
