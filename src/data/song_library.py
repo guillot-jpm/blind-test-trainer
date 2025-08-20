@@ -145,6 +145,101 @@ def update_srs_data(song_id, new_interval, new_ease_factor, next_review_date):
         raise
 
 
+def get_all_songs_for_view():
+    """
+    Retrieves a detailed list of all songs for the library management view.
+
+    This function joins the 'songs' and 'spaced_repetition' tables to
+    include the next review date for each song.
+
+    Returns:
+        list: A list of dictionaries, where each dictionary represents a song
+              with its details.
+    """
+    cursor = get_cursor()
+    cursor.execute("""
+        SELECT
+            s.song_id,
+            s.title,
+            s.artist,
+            s.release_year,
+            sr.next_review_date
+        FROM songs s
+        LEFT JOIN spaced_repetition sr ON s.song_id = sr.song_id
+        ORDER BY s.artist, s.title
+    """)
+
+    # Fetch all results and convert them into a list of dictionaries
+    rows = cursor.fetchall()
+    songs_list = []
+    # Get column names from the cursor description
+    column_names = [description[0] for description in cursor.description]
+    for row in rows:
+        songs_list.append(dict(zip(column_names, row)))
+
+    return songs_list
+
+
+def delete_songs_by_id(song_ids):
+    """
+    Deletes one or more songs from the database.
+
+    This function removes records from 'songs', 'play_history', and
+    'spaced_repetition' tables in a single transaction.
+
+    Args:
+        song_ids (list): A list of song_id integers to be deleted.
+    """
+    if not song_ids:
+        return
+
+    try:
+        cursor = get_cursor()
+
+        # The '?' placeholder syntax varies depending on the number of items
+        placeholders = ', '.join('?' for _ in song_ids)
+
+        # Note: Foreign key constraints with ON DELETE CASCADE handle this automatically
+        # if the database schema is set up that way. If not, we must delete manually.
+        # Assuming ON DELETE CASCADE is NOT set, for robustness.
+
+        cursor.execute(f"DELETE FROM play_history WHERE song_id IN ({placeholders})", song_ids)
+        cursor.execute(f"DELETE FROM spaced_repetition WHERE song_id IN ({placeholders})", song_ids)
+        cursor.execute(f"DELETE FROM songs WHERE song_id IN ({placeholders})", song_ids)
+
+        cursor.connection.commit()
+    except sqlite3.Error as e:
+        print(f"Failed to delete songs: {e}")
+        cursor.connection.rollback()
+        raise
+
+def update_song_details(song_id, title, artist, release_year, spotify_id):
+    """
+    Updates the details for a specific song.
+
+    Args:
+        song_id (int): The ID of the song to update.
+        title (str): The new title.
+        artist (str): The new artist.
+        release_year (int): The new release year.
+        spotify_id (str): The new Spotify ID.
+    """
+    try:
+        cursor = get_cursor()
+        cursor.execute("""
+            UPDATE songs
+            SET title = ?,
+                artist = ?,
+                release_year = ?,
+                spotify_id = ?
+            WHERE song_id = ?
+        """, (title, artist, release_year, spotify_id, song_id))
+        cursor.connection.commit()
+    except sqlite3.Error as e:
+        print(f"Failed to update song details: {e}")
+        cursor.connection.rollback()
+        raise
+
 def get_due_songs():
     """
     Retrieves a list of song_ids for all songs that are due for review.

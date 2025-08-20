@@ -1,280 +1,395 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, simpledialog
 import os
 from src.services import spotify_service
 from src.services.spotify_service import SpotifyAPIError
 from src.utils.config_manager import config
-from src.data.song_library import add_song, DuplicateSongError
+from src.data.song_library import (
+    add_song,
+    DuplicateSongError,
+    get_all_songs_for_view,
+    delete_songs_by_id,
+    update_song_details,
+)
 
 
 class LibraryManagementFrame(tk.Frame):
     """
-    A frame for managing the song library, including adding new songs.
+    A frame for managing the song library, including adding, viewing,
+    searching, editing, and deleting songs.
     """
 
     def __init__(self, parent, controller):
         """
         Initializes the LibraryManagementFrame.
-
-        Args:
-            parent (tk.Widget): The parent widget.
-            controller (tk.Tk): The main application window (controller).
         """
         super().__init__(parent)
         self.controller = controller
+        self.preview_data = {}
 
-        # Create a main frame to hold all widgets
-        main_frame = ttk.Frame(self, padding="10")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        self.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=1)
+        # --- Main Layout ---
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=3)
+        self.grid_columnconfigure(1, weight=1)
 
-        # --- Back Button ---
+        # --- Top Bar ---
+        top_bar = ttk.Frame(self, padding="10 0 10 10")
+        top_bar.grid(row=0, column=0, columnspan=2, sticky="ew")
+
         back_button = ttk.Button(
-            main_frame,
+            top_bar,
             text="< Back to Main Menu",
-            command=lambda: controller.show_frame("MainMenuFrame")
+            command=lambda: controller.show_frame("MainMenuFrame"),
         )
-        back_button.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(0, 10))
+        back_button.pack(side="left")
 
-        # --- Input Fields ---
-        # Row 1: Local Filename (Required)
-        ttk.Label(main_frame, text="Local Filename:").grid(row=1, column=0, sticky=tk.W, pady=2)
-        local_filename_entry = ttk.Entry(main_frame, width=40)
-        local_filename_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=2)
-
-        # Row 2: Song Title
-        ttk.Label(main_frame, text="Song Title:").grid(row=2, column=0, sticky=tk.W, pady=2)
-        song_title_entry = ttk.Entry(main_frame, width=40)
-        song_title_entry.grid(row=2, column=1, sticky=(tk.W, tk.E), pady=2)
-
-        # Row 3: Artist (Initially Hidden)
-        artist_label = ttk.Label(main_frame, text="Artist:")
-        artist_entry = ttk.Entry(main_frame, width=40)
-
-        # Row 4: Spotify Track ID (Initially Hidden)
-        spotify_id_label = ttk.Label(main_frame, text="Spotify Track ID:")
-        spotify_id_entry = ttk.Entry(main_frame, width=40)
-
-        # --- UI Management for Progressive Disclosure ---
-        # Store widgets that can be hidden/shown
-        self.progressive_widgets = {
-            'artist': (artist_label, artist_entry),
-            'spotify_id': (spotify_id_label, spotify_id_entry)
-        }
-
-        # Hide them initially
-        artist_label.grid_remove()
-        artist_entry.grid_remove()
-        spotify_id_label.grid_remove()
-        spotify_id_entry.grid_remove()
-
-        # Place them in the grid layout for later
-        artist_label.grid(row=3, column=0, sticky=tk.W, pady=2)
-        artist_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=2)
-        spotify_id_label.grid(row=4, column=0, sticky=tk.W, pady=2)
-        spotify_id_entry.grid(row=4, column=1, sticky=(tk.W, tk.E), pady=2)
-
-
-        # --- Buttons ---
-        button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=5, column=0, columnspan=2, pady=10, sticky=tk.E)
-
-        search_button = ttk.Button(
-            button_frame,
-            text="Search",
-            command=lambda: self.search_and_preview(
-                song_title_entry,
-                artist_entry,
-                spotify_id_entry,
-                local_filename_entry,
-                preview_area,
-                add_button
-            )
+        # --- Library View (Left Side) ---
+        library_frame = ttk.LabelFrame(
+            self, text="My Library", padding="10"
         )
-        search_button.pack(side=tk.LEFT, padx=5)
-
-        add_button = ttk.Button(
-            button_frame,
-            text="Add to Library",
-            state="disabled",
-            command=lambda: self.add_to_library(
-                add_button,
-                preview_area,
-                song_title_entry,
-                artist_entry,
-                local_filename_entry,
-                spotify_id_entry
-            )
+        library_frame.grid(
+            row=1, column=0, sticky="nsew", padx=(10, 5), pady=10
         )
-        add_button.pack(side=tk.LEFT)
+        library_frame.grid_rowconfigure(1, weight=1)
+        library_frame.grid_columnconfigure(0, weight=1)
 
-        main_frame.columnconfigure(1, weight=1) # Makes the entry widgets expandable
+        # Search bar for the library
+        search_bar_frame = ttk.Frame(library_frame)
+        search_bar_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+        search_bar_frame.grid_columnconfigure(0, weight=1)
 
-        # --- Preview Area ---
-        preview_label = ttk.Label(main_frame, text="Preview:")
-        preview_label.grid(row=6, column=0, columnspan=2, sticky=tk.W, pady=(10, 0))
+        self.search_var = tk.StringVar()
+        search_entry = ttk.Entry(search_bar_frame, textvariable=self.search_var)
+        search_entry.grid(row=0, column=0, sticky="ew")
+        search_button = ttk.Button(search_bar_frame, text="Search", command=self._search_library)
+        search_button.grid(row=0, column=1, padx=(5, 0))
+        self.search_var.trace_add("write", lambda *args: self._search_library())
 
-        preview_area = tk.Text(main_frame, height=10, state="disabled", bg="#f0f0f0")
-        preview_area.grid(row=7, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S))
 
-        main_frame.rowconfigure(7, weight=1) # Makes the preview area expandable
+        # Treeview to display songs
+        columns = ("title", "artist", "release_year", "next_review_date")
+        self.tree = ttk.Treeview(
+            library_frame, columns=columns, show="headings"
+        )
+        self.tree.grid(row=1, column=0, sticky="nsew")
 
-    def search_and_preview(self, song_title_entry, artist_entry, spotify_id_entry, local_filename_entry, preview_area, add_button):
+        # Define headings and add sorting command
+        for col in columns:
+            self.tree.heading(col, text=col.replace("_", " ").title(),
+                              command=lambda _col=col: self._sort_column(_col, False))
+
+        # Add a scrollbar
+        scrollbar = ttk.Scrollbar(
+            library_frame, orient=tk.VERTICAL, command=self.tree.yview
+        )
+        self.tree.configure(yscroll=scrollbar.set)
+        scrollbar.grid(row=1, column=1, sticky="ns")
+
+        self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
+
+        # Action buttons for the library
+        action_button_frame = ttk.Frame(library_frame)
+        action_button_frame.grid(row=2, column=0, columnspan=2, sticky="e", pady=(10, 0))
+
+        self.edit_button = ttk.Button(
+            action_button_frame, text="Edit Selected", state="disabled", command=self._edit_selected_song
+        )
+        self.edit_button.pack(side="left", padx=5)
+
+        self.delete_button = ttk.Button(
+            action_button_frame, text="Delete Selected", state="disabled", command=self._delete_selected_songs
+        )
+        self.delete_button.pack(side="left")
+
+        # --- Add Song Form (Right Side) ---
+        add_song_frame = ttk.LabelFrame(
+            self, text="Add New Song", padding="10"
+        )
+        add_song_frame.grid(
+            row=1, column=1, sticky="nsew", padx=(5, 10), pady=10
+        )
+        add_song_frame.grid_columnconfigure(1, weight=1)
+
+        # Input fields
+        ttk.Label(add_song_frame, text="Local Filename:").grid(row=0, column=0, sticky="w", pady=2)
+        self.local_filename_entry = ttk.Entry(add_song_frame)
+        self.local_filename_entry.grid(row=0, column=1, sticky="ew", pady=2)
+
+        ttk.Label(add_song_frame, text="Song Title:").grid(row=1, column=0, sticky="w", pady=2)
+        self.song_title_entry = ttk.Entry(add_song_frame)
+        self.song_title_entry.grid(row=1, column=1, sticky="ew", pady=2)
+
+        ttk.Label(add_song_frame, text="Artist:").grid(row=2, column=0, sticky="w", pady=2)
+        self.artist_entry = ttk.Entry(add_song_frame)
+        self.artist_entry.grid(row=2, column=1, sticky="ew", pady=2)
+
+        # Search and Add buttons for the form
+        add_form_button_frame = ttk.Frame(add_song_frame)
+        add_form_button_frame.grid(row=3, column=0, columnspan=2, sticky="e", pady=10)
+
+        search_preview_button = ttk.Button(add_form_button_frame, text="Search & Preview", command=self._search_and_preview)
+        search_preview_button.pack(side="left", padx=5)
+
+        self.add_to_library_button = ttk.Button(add_form_button_frame, text="Add to Library", state="disabled", command=self._add_to_library)
+        self.add_to_library_button.pack(side="left")
+
+        # Preview Area
+        preview_label = ttk.Label(add_song_frame, text="Preview:")
+        preview_label.grid(row=4, column=0, columnspan=2, sticky="w", pady=(10, 0))
+
+        self.preview_area = tk.Text(add_song_frame, height=8, state="disabled", bg="#f0f0f0")
+        self.preview_area.grid(row=5, column=0, columnspan=2, sticky="nsew")
+        add_song_frame.grid_rowconfigure(5, weight=1)
+
+        # Store all songs to filter locally
+        self.all_songs = []
+
+        # Populate the treeview on initialization
+        self._populate_treeview()
+
+    def _populate_treeview(self, songs_to_display=None):
         """
-        Handles the multi-level search process.
+        Populates the treeview with song data.
+        If songs_to_display is None, it fetches all songs from the database.
+        Otherwise, it displays the provided list of songs.
         """
-        # --- 1. Get current input values ---
-        filename = local_filename_entry.get().strip()
-        title = song_title_entry.get().strip()
-        artist = artist_entry.get().strip()
-        spotify_id = spotify_id_entry.get().strip()
+        # Clear existing items
+        for item in self.tree.get_children():
+            self.tree.delete(item)
 
-        # --- 2. Input Validation ---
+        # If no specific list is provided, fetch all songs
+        if songs_to_display is None:
+            self.all_songs = get_all_songs_for_view()
+            songs_to_display = self.all_songs
+
+        # Insert new items
+        for song in songs_to_display:
+            values = (
+                song["title"],
+                song["artist"],
+                song["release_year"],
+                song["next_review_date"],
+            )
+            # Store the song_id in the item's id
+            self.tree.insert("", tk.END, iid=song["song_id"], values=values)
+
+    def _search_library(self, *args):
+        """
+        Filters the treeview based on the search query.
+        The search is case-insensitive and checks both title and artist.
+        """
+        query = self.search_var.get().lower()
+        if not query:
+            self._populate_treeview(self.all_songs)
+            return
+
+        filtered_songs = [
+            song for song in self.all_songs
+            if query in song["title"].lower() or query in song["artist"].lower()
+        ]
+        self._populate_treeview(filtered_songs)
+
+    def _on_tree_select(self, event):
+        """
+        Enables or disables the edit/delete buttons based on the number of
+        selected items in the treeview.
+        """
+        selected_items = self.tree.selection()
+        num_selected = len(selected_items)
+
+        if num_selected == 0:
+            self.edit_button.config(state="disabled")
+            self.delete_button.config(state="disabled")
+        elif num_selected == 1:
+            self.edit_button.config(state="normal")
+            self.delete_button.config(state="normal")
+        else: # More than 1 selected
+            self.edit_button.config(state="disabled")
+            self.delete_button.config(state="normal")
+
+    def _sort_column(self, col, reverse):
+        """Sorts the treeview column when a heading is clicked."""
+        # Get data from the treeview
+        data = [(self.tree.set(child, col), child) for child in self.tree.get_children('')]
+
+        # Sort the data
+        # The data is sorted case-insensitively if it's a string
+        data.sort(key=lambda t: (t[0].lower() if isinstance(t[0], str) else t[0]), reverse=reverse)
+
+        for index, (val, child) in enumerate(data):
+            self.tree.move(child, '', index)
+
+        # Toggle the sort direction for the next click
+        self.tree.heading(col, command=lambda: self._sort_column(col, not reverse))
+
+    def _edit_selected_song(self):
+        """
+        Opens a dialog to edit the selected song by providing a new Spotify ID.
+        Fetches new metadata from Spotify and updates the local database.
+        """
+        selected_items = self.tree.selection()
+        if not selected_items:
+            return
+
+        song_id_str = selected_items[0]
+        song_id = int(song_id_str)
+
+        # Find the current Spotify ID to pre-fill the dialog
+        selected_song = next((s for s in self.all_songs if s['song_id'] == song_id), None)
+        current_spotify_id = selected_song.get('spotify_id', '') if selected_song else ''
+
+        new_spotify_id = simpledialog.askstring(
+            "Edit Song via Spotify ID",
+            "Enter the correct Spotify Track ID:",
+            initialvalue=current_spotify_id,
+            parent=self
+        )
+
+        if not new_spotify_id or not new_spotify_id.strip():
+            return
+
+        try:
+            # Fetch new track details from Spotify
+            self._update_preview_area("Fetching new song data from Spotify...")
+            self.update_idletasks()
+
+            new_track_info = spotify_service.get_track_by_id(new_spotify_id.strip())
+
+            if not new_track_info:
+                messagebox.showerror("Not Found", f"Could not find a track with ID: {new_spotify_id}")
+                self._update_preview_area("") # Clear preview area
+                return
+
+            # Update the database with the new details
+            update_song_details(
+                song_id=song_id,
+                title=new_track_info['title'],
+                artist=new_track_info['artist'],
+                release_year=new_track_info['release_year'],
+                spotify_id=new_track_info['spotify_id']
+            )
+
+            self._populate_treeview() # Refresh the view
+            self._update_preview_area("") # Clear preview area
+            messagebox.showinfo("Success", "Song details updated successfully.")
+
+        except SpotifyAPIError as e:
+            messagebox.showerror("API Error", f"Could not fetch data from Spotify: {e}")
+            self._update_preview_area("")
+        except Exception as e:
+            messagebox.showerror("Update Error", f"An unexpected error occurred: {e}")
+            self._update_preview_area("")
+
+    def _delete_selected_songs(self):
+        """
+        Deletes the selected song(s) from the library after confirmation.
+        """
+        selected_items = self.tree.selection()
+        if not selected_items:
+            return
+
+        confirm = messagebox.askyesno(
+            "Confirm Deletion",
+            f"Are you sure you want to delete {len(selected_items)} song(s)?\n"
+            "This action cannot be undone."
+        )
+
+        if confirm:
+            try:
+                song_ids_to_delete = [int(item_id) for item_id in selected_items]
+                delete_songs_by_id(song_ids_to_delete)
+                self._populate_treeview() # Refresh the view
+            except Exception as e:
+                messagebox.showerror("Database Error", f"Failed to delete songs: {e}")
+
+    def _search_and_preview(self):
+        """
+        Searches for a track on Spotify based on user input and displays a preview.
+        """
+        title = self.song_title_entry.get().strip()
+        artist = self.artist_entry.get().strip()
+        filename = self.local_filename_entry.get().strip()
+
         if not filename:
             messagebox.showwarning("Missing Information", "Local Filename is required.")
             return
-        if not title and not spotify_id:
-            messagebox.showwarning("Missing Information", "Please provide a Song Title or a Spotify Track ID.")
+        if not title:
+            messagebox.showwarning("Missing Information", "Song Title is required for searching.")
             return
 
-        # --- 3. File Existence Check ---
-        music_folder = config.get('Paths', 'music_folder')
+        music_folder = config.get('Paths', 'music_folder', fallback='.')
         file_path = os.path.join(music_folder, filename)
         if not os.path.exists(file_path):
-            self._update_preview_area(preview_area, f"Error: File '{filename}' not found.", is_error=True)
-            add_button.config(state="disabled")
+            self._update_preview_area(f"Error: File '{filename}' not found in music folder.", is_error=True)
+            self.add_to_library_button.config(state="disabled")
             return
 
-        # --- 4. Determine Search Level and Execute ---
-        self._update_preview_area(preview_area, "Searching...")
+        self._update_preview_area("Searching...")
         self.update_idletasks()
 
         try:
-            match = None
-            # Level 3: Spotify ID search (highest priority)
-            if spotify_id:
-                match = spotify_service.get_track_by_id(spotify_id)
-            # Level 2: Title and Artist search
-            elif artist_entry.winfo_viewable():
-                match = spotify_service.search_by_title_and_artist(title, artist)
-            # Level 1: Title-only search
-            else:
-                match = spotify_service.search_by_title(title)
+            match = spotify_service.search_by_title_and_artist(title, artist) if artist else spotify_service.search_by_title(title)
 
-            # --- 5. Process Results ---
             if match:
-                self._handle_successful_search(
-                    match, filename, preview_area, add_button,
-                    song_title_entry, artist_entry, spotify_id_entry
+                self.preview_data = match
+                self.preview_data['local_filename'] = filename
+
+                display_text = (
+                    f"Title: {match['title']}\n"
+                    f"Artist: {match['artist']}\n"
+                    f"Release Year: {match['release_year']}\n"
+                    f"Spotify ID: {match['spotify_id']}"
                 )
+                self._update_preview_area(display_text)
+                self.add_to_library_button.config(state="normal")
             else:
-                self._update_preview_area(preview_area, "No match found.", is_error=True)
-                add_button.config(state="disabled")
+                self._update_preview_area("No match found on Spotify.", is_error=True)
+                self.add_to_library_button.config(state="disabled")
 
         except SpotifyAPIError as e:
-            self._update_preview_area(preview_area, f"API Error: {e}", is_error=True)
-            add_button.config(state="disabled")
+            self._update_preview_area(f"API Error: {e}", is_error=True)
+            self.add_to_library_button.config(state="disabled")
 
 
-    def _handle_successful_search(self, match, filename, preview_area, add_button,
-                                  song_title_entry, artist_entry, spotify_id_entry):
-        """Helper to handle the UI updates after a successful search."""
-        # Store data for the 'Add to Library' action
-        self.preview_data = match
-        self.preview_data['local_filename'] = filename
-
-        # Update the preview text
-        display_text = (
-            f"Title: {match['title']}\n"
-            f"Artist: {match['artist']}\n"
-            f"Release Year: {match['release_year']}\n"
-            f"Spotify ID: {match['spotify_id']}"
-        )
-        self._update_preview_area(preview_area, display_text)
-
-        # --- Progressive UI Updates ---
-        # Update title and artist fields to reflect the match
-        song_title_entry.delete(0, tk.END)
-        song_title_entry.insert(0, match['title'])
-        artist_entry.delete(0, tk.END)
-        artist_entry.insert(0, match['artist'])
-
-        # Show artist field if it was hidden
-        if not self.progressive_widgets['artist'][0].winfo_viewable():
-            self.progressive_widgets['artist'][0].grid()
-            self.progressive_widgets['artist'][1].grid()
-
-        # Show Spotify ID field if it was hidden
-        if not self.progressive_widgets['spotify_id'][0].winfo_viewable():
-            self.progressive_widgets['spotify_id'][0].grid()
-            self.progressive_widgets['spotify_id'][1].grid()
-
-        # Update the spotify id field as well
-        spotify_id_entry.delete(0, tk.END)
-        spotify_id_entry.insert(0, match['spotify_id'])
-
-        add_button.config(state="normal")
-
-
-    def _update_preview_area(self, preview_area, text, is_error=False):
-        """Helper function to update the text in the preview area."""
-        preview_area.config(state="normal")
-        preview_area.delete("1.0", tk.END)
-        preview_area.insert("1.0", text)
-        preview_area.config(
-            state="disabled",
-            foreground="red" if is_error else "black"
-        )
-
-    def add_to_library(self, add_button, preview_area, title_entry, artist_entry, filename_entry, spotify_id_entry):
+    def _add_to_library(self):
         """
-        Handles adding the previewed song to the library and resetting the UI.
+        Adds the previewed song to the library and resets the UI.
         """
-        if not hasattr(self, 'preview_data') or not self.preview_data:
-            messagebox.showerror("Error", "No song data available. Please search for a song first.")
+        if not self.preview_data:
+            messagebox.showerror("Error", "No song data to add. Please search first.")
             return
 
-        data = self.preview_data
         try:
             add_song(
-                title=data['title'],
-                artist=data['artist'],
-                release_year=data['release_year'],
-                spotify_id=data['spotify_id'],
-                local_filename=data['local_filename']
+                title=self.preview_data['title'],
+                artist=self.preview_data['artist'],
+                release_year=self.preview_data['release_year'],
+                spotify_id=self.preview_data['spotify_id'],
+                local_filename=self.preview_data['local_filename']
             )
-            messagebox.showinfo("Success", f"Added '{data['title']}' to the library.")
 
-            # --- Reset UI to initial state ---
-            self.reset_library_manager_ui(add_button, preview_area, title_entry, artist_entry, filename_entry, spotify_id_entry)
+            # Refresh treeview to show the new song
+            self._populate_treeview()
+
+            # Provide feedback and reset the form
+            self._update_preview_area(f"Successfully added '{self.preview_data['title']}'.")
+            self.add_to_library_button.config(state="disabled")
+            self.local_filename_entry.delete(0, tk.END)
+            self.song_title_entry.delete(0, tk.END)
+            self.artist_entry.delete(0, tk.END)
+            self.preview_data = {}
 
         except DuplicateSongError:
             messagebox.showerror("Duplicate Song", "This song already exists in the library.")
         except Exception as e:
             messagebox.showerror("Database Error", f"An unexpected error occurred: {e}")
 
-
-    def reset_library_manager_ui(self, add_button, preview_area, title_entry, artist_entry, filename_entry, spotify_id_entry):
-        """Resets the Library Manager window to its initial state."""
-        # Clear all text entries
-        title_entry.delete(0, tk.END)
-        artist_entry.delete(0, tk.END)
-        filename_entry.delete(0, tk.END)
-        spotify_id_entry.delete(0, tk.END)
-
-        # Hide progressive widgets
-        self.progressive_widgets['artist'][0].grid_remove()
-        self.progressive_widgets['artist'][1].grid_remove()
-        self.progressive_widgets['spotify_id'][0].grid_remove()
-        self.progressive_widgets['spotify_id'][1].grid_remove()
-
-        # Clear the preview area
-        self._update_preview_area(preview_area, "")
-
-        # Disable the add button
-        add_button.config(state="disabled")
-
-        # Delete the temporary preview data
-        if hasattr(self, 'preview_data'):
-            del self.preview_data
+    def _update_preview_area(self, text, is_error=False):
+        """Helper function to update the text in the preview area."""
+        self.preview_area.config(state="normal")
+        self.preview_area.delete("1.0", tk.END)
+        self.preview_area.insert("1.0", text)
+        self.preview_area.config(
+            state="disabled",
+            foreground="red" if is_error else "black"
+        )
