@@ -7,6 +7,7 @@ a single, consistent connection is used throughout the application.
 
 import sqlite3
 import datetime
+import logging
 from src.data.schema import ALL_TABLES
 
 # This will hold the single, application-wide database connection.
@@ -52,7 +53,7 @@ def connect(db_path):
     except sqlite3.Error as e:
         # In a real application, this should be logged to a file or a
         # dedicated logging service.
-        print(f"Database connection error: {e}")
+        logging.error(f"Database connection error: {e}")
         _connection = None  # Ensure connection is reset on failure.
         raise  # Re-raise the exception to be handled by the caller.
 
@@ -101,7 +102,7 @@ def initialize_database():
     except (sqlite3.Error, RuntimeError) as e:
         # This will catch both SQL errors and errors from get_cursor()
         # if the connection isn't open.
-        print(f"Database initialization error: {e}")
+        logging.error(f"Database initialization error: {e}")
         raise # Re-raise to let the caller know initialization failed.
 
 
@@ -122,7 +123,7 @@ def record_play_history(song_id, was_correct, reaction_time):
         """, (song_id, was_correct, reaction_time))
         cursor.connection.commit()
     except sqlite3.Error as e:
-        print(f"Failed to record play history: {e}")
+        logging.error(f"Failed to record play history: {e}")
         # Depending on the application's needs, you might want to rollback,
         # but for a single INSERT, it's less critical.
         cursor.connection.rollback()
@@ -143,7 +144,7 @@ def get_total_song_count():
         result = cursor.fetchone()
         return result[0] if result else 0
     except sqlite3.Error as e:
-        print(f"Failed to get total song count: {e}")
+        logging.error(f"Failed to get total song count: {e}")
         return 0
 
 
@@ -160,7 +161,7 @@ def get_all_release_years():
         # fetchall() returns a list of tuples, e.g., [(1990,), (2004,)]
         return [row[0] for row in cursor.fetchall()]
     except sqlite3.Error as e:
-        print(f"Failed to get release years: {e}")
+        logging.error(f"Failed to get release years: {e}")
         return []
 
 
@@ -176,5 +177,5 @@ def get_all_srs_intervals():
         cursor.execute("SELECT current_interval_days FROM spaced_repetition")
         return [row[0] for row in cursor.fetchall()]
     except sqlite3.Error as e:
-        print(f"Failed to get SRS intervals: {e}")
+        logging.error(f"Failed to get SRS intervals: {e}")
         return []

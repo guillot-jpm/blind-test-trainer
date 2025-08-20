@@ -7,6 +7,7 @@ It includes functions for adding, retrieving, and listing songs.
 
 import sqlite3
 from datetime import date
+import logging
 from src.data.database_manager import get_cursor
 
 class DuplicateSongError(Exception):
@@ -63,6 +64,9 @@ def add_song(title, artist, release_year, local_filename, spotify_id=None):
         _create_srs_record(song_id, cursor)
 
         cursor.connection.commit()
+        logging.info(
+            f"Song '{title} by {artist}' successfully added to library."
+        )
         return song_id
     except sqlite3.IntegrityError:
         cursor.connection.rollback()

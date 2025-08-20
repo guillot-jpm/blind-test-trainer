@@ -2,6 +2,7 @@ import sqlite3
 import sys
 import tkinter as tk
 from tkinter import messagebox, ttk
+import logging
 
 from src.gui.main_menu_frame import MainMenuFrame
 from src.gui.quiz_view_frame import QuizView
@@ -35,7 +36,7 @@ class MainWindow(tk.Tk):
         try:
             self.style.theme_use("clam")
         except tk.TclError:
-            print("'clam' theme not available, using default.")
+            logging.warning("'clam' theme not available, using default.")
 
         # Define fonts
         self.title_font = ("Arial", 18, "bold")
@@ -86,7 +87,11 @@ class MainWindow(tk.Tk):
         try:
             connect(db_path)
             initialize_database()
-        except sqlite3.Error:
+        except sqlite3.Error as e:
+            logging.critical(
+                "Failure to connect to the local database on startup. "
+                f"Reason: {e}"
+            )
             messagebox.showerror(
                 "Fatal Error",
                 f"Fatal Error: Could not connect to the database at {db_path}. "
@@ -141,5 +146,6 @@ class MainWindow(tk.Tk):
         Handles the window close event by disconnecting from the database
         and destroying the window.
         """
+        logging.info("Application closed cleanly.")
         disconnect()
         self.destroy()

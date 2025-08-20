@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from collections import Counter
+import logging
 
 from src.data.database_manager import (
     get_total_song_count,
@@ -100,6 +101,7 @@ class MainMenuFrame(ttk.Frame):
         """
         Starts a new quiz with the specified mode.
         """
+        logging.info(f"User starts a \"{mode} Session\".")
         quiz_view = self.controller.frames["QuizView"]
         quiz_view.start_new_quiz(mode=mode)
 
