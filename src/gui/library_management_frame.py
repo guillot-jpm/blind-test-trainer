@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import os
 from src.services import spotify_service
+from src.services.file_discovery import find_new_songs
 from src.services.spotify_service import SpotifyAPIError
 from src.utils.config_manager import config
 from src.data.song_library import (
@@ -26,6 +27,8 @@ class LibraryManagementFrame(ttk.Frame):
         super().__init__(parent, style="TFrame")
         self.controller = controller
         self.preview_data = {}
+        self.import_session_files = []
+        self.current_import_index = -1
 
         # --- Style for preview text area ---
         self.controller.style.configure("Preview.TText",
@@ -53,23 +56,28 @@ class LibraryManagementFrame(ttk.Frame):
         back_button.pack(side="left", pady=(5, 0))
 
         # --- Library View (Left Side) ---
-        library_frame = ttk.LabelFrame(self, text="My Library")
-        library_frame.grid(
+        self.library_frame = ttk.LabelFrame(self, text="My Library")
+        self.library_frame.grid(
             row=1, column=0, sticky="nsew", padx=(10, 5), pady=10
         )
-        library_frame.grid_rowconfigure(1, weight=1)
-        library_frame.grid_columnconfigure(0, weight=1)
+        self.library_frame.grid_rowconfigure(1, weight=1)
+        self.library_frame.grid_columnconfigure(0, weight=1)
+
+        # --- Import Mode Widgets (initially hidden) ---
+        self.import_status_label = ttk.Label(
+            self.library_frame, text="", style="Status.TLabel"
+        )
 
         # Search bar for the library
-        search_bar_frame = ttk.Frame(library_frame, style="TFrame")
-        search_bar_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
-        search_bar_frame.grid_columnconfigure(0, weight=1)
+        self.search_bar_frame = ttk.Frame(self.library_frame, style="TFrame")
+        self.search_bar_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+        self.search_bar_frame.grid_columnconfigure(0, weight=1)
 
         self.search_var = tk.StringVar()
-        search_entry = ttk.Entry(search_bar_frame, textvariable=self.search_var)
+        search_entry = ttk.Entry(self.search_bar_frame, textvariable=self.search_var)
         search_entry.grid(row=0, column=0, sticky="ew")
         search_button = ttk.Button(
-            search_bar_frame, text="Search", command=self._search_library, style="TButton"
+            self.search_bar_frame, text="Search", command=self._search_library, style="TButton"
         )
         search_button.grid(row=0, column=1, padx=(5, 0))
         self.search_var.trace_add("write", lambda *args: self._search_library())
@@ -78,7 +86,7 @@ class LibraryManagementFrame(ttk.Frame):
         # Treeview to display songs
         columns = ("title", "artist", "release_year", "next_review_date")
         self.tree = ttk.Treeview(
-            library_frame, columns=columns, show="headings"
+            self.library_frame, columns=columns, show="headings"
         )
         self.tree.grid(row=1, column=0, sticky="nsew")
 
@@ -88,17 +96,23 @@ class LibraryManagementFrame(ttk.Frame):
                               command=lambda _col=col: self._sort_column(_col, False))
 
         # Add a scrollbar
-        scrollbar = ttk.Scrollbar(
-            library_frame, orient=tk.VERTICAL, command=self.tree.yview
+        self.tree_scrollbar = ttk.Scrollbar(
+            self.library_frame, orient=tk.VERTICAL, command=self.tree.yview
         )
-        self.tree.configure(yscroll=scrollbar.set)
-        scrollbar.grid(row=1, column=1, sticky="ns")
+        self.tree.configure(yscroll=self.tree_scrollbar.set)
+        self.tree_scrollbar.grid(row=1, column=1, sticky="ns")
 
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
 
         # Action buttons for the library
-        action_button_frame = ttk.Frame(library_frame, style="TFrame")
+        action_button_frame = ttk.Frame(self.library_frame, style="TFrame")
         action_button_frame.grid(row=2, column=0, columnspan=2, sticky="e", pady=(10, 0))
+
+        add_from_folder_button = ttk.Button(
+            action_button_frame, text="Add from Folder",
+            command=self._start_import_session, style="TButton"
+        )
+        add_from_folder_button.pack(side="left", padx=(0, 10))
 
         self.edit_button = ttk.Button(
             action_button_frame, text="Edit Selected", state="disabled",
@@ -113,57 +127,70 @@ class LibraryManagementFrame(ttk.Frame):
         self.delete_button.pack(side="left")
 
         # --- Add Song Form (Right Side) ---
-        add_song_frame = ttk.LabelFrame(self, text="Add New Song")
-        add_song_frame.grid(
+        self.add_song_frame = ttk.LabelFrame(self, text="Add New Song")
+        self.add_song_frame.grid(
             row=1, column=1, sticky="nsew", padx=(5, 10), pady=10
         )
-        add_song_frame.grid_columnconfigure(1, weight=1)
+        self.add_song_frame.grid_columnconfigure(1, weight=1)
 
         # Input fields
-        ttk.Label(add_song_frame, text="Local Filename:").grid(
+        ttk.Label(self.add_song_frame, text="Local Filename:").grid(
             row=0, column=0, sticky="w", pady=2
         )
-        self.local_filename_entry = ttk.Entry(add_song_frame)
+        self.local_filename_entry = ttk.Entry(self.add_song_frame)
         self.local_filename_entry.grid(row=0, column=1, sticky="ew", pady=2)
 
-        ttk.Label(add_song_frame, text="Song Title:").grid(
+        ttk.Label(self.add_song_frame, text="Song Title:").grid(
             row=1, column=0, sticky="w", pady=2
         )
-        self.song_title_entry = ttk.Entry(add_song_frame)
+        self.song_title_entry = ttk.Entry(self.add_song_frame)
         self.song_title_entry.grid(row=1, column=1, sticky="ew", pady=2)
 
-        ttk.Label(add_song_frame, text="Artist:").grid(
+        ttk.Label(self.add_song_frame, text="Artist:").grid(
             row=2, column=0, sticky="w", pady=2
         )
-        self.artist_entry = ttk.Entry(add_song_frame)
+        self.artist_entry = ttk.Entry(self.add_song_frame)
         self.artist_entry.grid(row=2, column=1, sticky="ew", pady=2)
 
         # Search and Add buttons for the form
-        add_form_button_frame = ttk.Frame(add_song_frame, style="TFrame")
-        add_form_button_frame.grid(
+        self.add_form_button_frame = ttk.Frame(self.add_song_frame, style="TFrame")
+        self.add_form_button_frame.grid(
             row=3, column=0, columnspan=2, sticky="e", pady=10
         )
 
-        search_preview_button = ttk.Button(
-            add_form_button_frame, text="Search & Preview",
+        self.search_preview_button = ttk.Button(
+            self.add_form_button_frame, text="Search & Preview",
             command=self._search_and_preview, style="TButton"
         )
-        search_preview_button.pack(side="left", padx=5)
+        self.search_preview_button.pack(side="left", padx=5)
 
         self.add_to_library_button = ttk.Button(
-            add_form_button_frame, text="Add to Library", state="disabled",
+            self.add_form_button_frame, text="Add to Library", state="disabled",
             command=self._add_to_library, style="TButton"
         )
         self.add_to_library_button.pack(side="left")
 
+        # --- Import Mode Buttons (initially hidden) ---
+        self.skip_button = ttk.Button(
+            self.add_form_button_frame, text="Skip File",
+            command=self._skip_file, style="TButton"
+        )
+        # self.skip_button is packed when import mode starts
+
+        self.stop_button = ttk.Button(
+            self.add_form_button_frame, text="Stop & Exit",
+            command=self._stop_import, style="TButton"
+        )
+        # self.stop_button is packed when import mode starts
+
         # Preview Area
-        preview_label = ttk.Label(add_song_frame, text="Preview:")
+        preview_label = ttk.Label(self.add_song_frame, text="Preview:")
         preview_label.grid(
             row=4, column=0, columnspan=2, sticky="w", pady=(10, 2)
         )
 
         preview_text_frame = ttk.Frame(
-            add_song_frame, style="Preview.TFrame", height=120
+            self.add_song_frame, style="Preview.TFrame", height=120
         )
         preview_text_frame.grid(
             row=5, column=0, columnspan=2, sticky="nsew"
@@ -183,7 +210,7 @@ class LibraryManagementFrame(ttk.Frame):
             style="TLabel"
         )
         self.preview_area.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        add_song_frame.grid_rowconfigure(5, weight=1)
+        self.add_song_frame.grid_rowconfigure(5, weight=1)
 
         # Store all songs to filter locally
         self.all_songs = []
@@ -405,7 +432,9 @@ class LibraryManagementFrame(ttk.Frame):
 
     def _add_to_library(self):
         """
-        Adds the previewed song to the library and resets the UI.
+        Adds the previewed song to the library.
+        If in an import session, it automatically loads the next song.
+        Otherwise, it resets the UI for manual entry.
         """
         if not self.preview_data:
             messagebox.showerror("Error", "No song data to add. Please search first.")
@@ -420,22 +449,167 @@ class LibraryManagementFrame(ttk.Frame):
                 local_filename=self.preview_data['local_filename']
             )
 
-            self._populate_treeview()
-            self._update_preview_area(
-                f"Success! Added '{self.preview_data['title']}'.",
-                is_error=False,
-                is_temporary=True
-            )
-            self.add_to_library_button.config(state="disabled")
-            self.local_filename_entry.delete(0, tk.END)
-            self.song_title_entry.delete(0, tk.END)
-            self.artist_entry.delete(0, tk.END)
-            self.preview_data = {}
+            # Check if we are in an import session
+            is_import_mode = self.current_import_index != -1
+
+            if is_import_mode:
+                # In import mode, automatically move to the next song
+                self.current_import_index += 1
+                self._load_song_for_import()
+            else:
+                # In manual mode, refresh view and reset the form
+                self._populate_treeview()
+                self._update_preview_area(
+                    f"Success! Added '{self.preview_data['title']}'.",
+                    is_error=False,
+                    is_temporary=True
+                )
+                self.add_to_library_button.config(state="disabled")
+                self.local_filename_entry.delete(0, tk.END)
+                self.song_title_entry.delete(0, tk.END)
+                self.artist_entry.delete(0, tk.END)
+                self.preview_data = {}
 
         except DuplicateSongError:
             messagebox.showerror("Duplicate Song", "This song already exists in the library.")
+            # If in import mode, skip the duplicate song and move to the next one
+            if self.current_import_index != -1:
+                self.current_import_index += 1
+                self._load_song_for_import()
         except Exception as e:
             messagebox.showerror("Database Error", f"An unexpected error occurred: {e}")
+
+    def _start_import_session(self):
+        """
+        Initiates the process of importing songs from a folder.
+        Finds new songs and transitions the UI to import mode.
+        """
+        music_folder = config.get('Paths', 'music_folder', fallback=None)
+        if not music_folder or not os.path.isdir(music_folder):
+            messagebox.showerror("Configuration Error",
+                                 "Music folder not set or not found. "
+                                 "Please configure it in 'config.ini'.")
+            return
+
+        # Ensure self.all_songs is up-to-date to get all existing filenames
+        self._populate_treeview()
+        existing_filenames = {song['local_filename'] for song in self.all_songs}
+
+        # Find new songs by comparing against the library
+        new_files = find_new_songs(music_folder, existing_filenames)
+
+        if not new_files:
+            messagebox.showinfo("No New Songs", "No new songs found in your music folder.")
+            return
+
+        # --- Enter Import Mode ---
+        self.import_session_files = new_files
+        self.current_import_index = 0
+
+        # --- Update UI for Import Mode ---
+        # Hide normal view widgets
+        self.search_bar_frame.grid_remove()
+        self.tree.grid_remove()
+        self.tree_scrollbar.grid_remove()
+        self.edit_button.pack_forget()
+        self.delete_button.pack_forget()
+
+        # Re-configure the 'Add Song' form buttons for import
+        self.search_preview_button.pack_forget()
+        self.add_to_library_button.pack_forget() # Temporarily remove to re-order
+
+        # Show import-specific widgets
+        self.import_status_label.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
+
+        # Add buttons in the new order for import mode
+        self.add_to_library_button.pack(side="left")
+        self.skip_button.pack(side="left", padx=5)
+        self.stop_button.pack(side="left")
+
+        # Load the first song to be imported
+        self._load_song_for_import()
+
+    def _load_song_for_import(self):
+        """
+        Loads the current song from the import session into the 'Add New Song' form.
+        It updates the status label and pre-fills the entry fields.
+        """
+        if self.current_import_index >= len(self.import_session_files):
+            self._stop_import()
+            messagebox.showinfo("Import Complete", "All new songs have been processed.")
+            return
+
+        # Update status label
+        total_files = len(self.import_session_files)
+        current_num = self.current_import_index + 1
+        self.import_status_label.config(
+            text=f"Importing file {current_num} of {total_files}."
+        )
+
+        # Get file path and pre-fill form
+        full_path = self.import_session_files[self.current_import_index]
+        filename = os.path.basename(full_path)
+
+        # Simple parsing: filename without extension as title
+        title_guess = os.path.splitext(filename)[0]
+
+        # Reset fields and preview area for the new song
+        self.local_filename_entry.delete(0, tk.END)
+        self.local_filename_entry.insert(0, filename)
+
+        self.song_title_entry.delete(0, tk.END)
+        self.song_title_entry.insert(0, title_guess)
+
+        self.artist_entry.delete(0, tk.END)
+        self._update_preview_area("")
+        self.add_to_library_button.config(state="disabled")
+
+        # Automatically trigger a search for the new song's details
+        self._search_and_preview()
+
+    def _skip_file(self):
+        """
+        Skips the current file and loads the next one in the import session.
+        """
+        self.current_import_index += 1
+        self._load_song_for_import()
+
+    def _stop_import(self):
+        """
+        Stops the import session and restores the normal library view.
+        """
+        # --- Exit Import Mode ---
+        self.import_session_files = []
+        self.current_import_index = -1
+
+        # --- Restore UI to Normal View ---
+        # Hide import-specific widgets
+        self.import_status_label.grid_remove()
+        self.skip_button.pack_forget()
+        self.stop_button.pack_forget()
+        self.add_to_library_button.pack_forget() # Temporarily remove to re-order
+
+        # Restore normal view widgets
+        self.search_bar_frame.grid()
+        self.tree.grid()
+        self.tree_scrollbar.grid()
+
+        # Restore buttons to their original positions and order
+        self.edit_button.pack(side="left", padx=5)
+        self.delete_button.pack(side="left")
+
+        self.search_preview_button.pack(side="left", padx=5)
+        self.add_to_library_button.pack(side="left")
+
+        # Refresh the library view to show any newly added songs
+        self._populate_treeview()
+
+        # Reset form fields
+        self.local_filename_entry.delete(0, tk.END)
+        self.song_title_entry.delete(0, tk.END)
+        self.artist_entry.delete(0, tk.END)
+        self._update_preview_area("")
+        self.add_to_library_button.config(state="disabled")
 
     def _update_preview_area(self, text, is_error=False, is_temporary=False):
         """
