@@ -1,3 +1,8 @@
+import configparser
+import sys
+import tkinter as tk
+from tkinter import messagebox
+
 import logging
 from src.gui.main_window import MainWindow
 from src.utils.config_manager import load_config
@@ -13,8 +18,18 @@ logging.basicConfig(
 
 
 if __name__ == "__main__":
-    # 1. Load application configuration
-    new_config_created = load_config()
+    try:
+        # 1. Load application configuration
+        new_config_created = load_config()
+    except configparser.Error:
+        # Use a hidden Tk root window to show the error message
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror(
+            "Configuration Error",
+            "Error: Configuration file 'config.ini' is corrupt or unreadable."
+        )
+        sys.exit(1)
 
     # 2. Initialize external services
     initialize_spotify_service()
