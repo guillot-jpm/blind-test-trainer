@@ -1,30 +1,21 @@
 import pytest
 from unittest.mock import MagicMock, patch
-import tkinter as tk
 from src.gui.quiz_view_frame import QuizView
 
-# Since this is a GUI component, we need a root window for it to exist
-@pytest.fixture(scope="module")
-def root_window():
-    root = tk.Tk()
-    # Prevent the window from showing up during tests
-    root.withdraw()
-    yield root
-    root.destroy()
-
 @pytest.fixture
-def mock_controller(root_window):
+def mock_controller():
     # The controller needs a `show_frame` method. We create a mock that has it.
     controller = MagicMock()
     controller.show_frame = MagicMock()
-    # The view also expects the controller to be a tkinter widget, so we mock this.
-    controller.winfo_toplevel.return_value = root_window
+    # Mock the style object that the view expects
+    controller.style = MagicMock()
     return controller
 
 @pytest.fixture
-def quiz_view(root_window, mock_controller):
-    # Patch all external dependencies of QuizView
-    with patch('src.gui.quiz_view_frame.song_library') as mock_song_lib, \
+def quiz_view(mock_controller):
+    # Patch all external dependencies of QuizView and the Tk root
+    with patch('tkinter.Tk'), \
+         patch('src.gui.quiz_view_frame.song_library') as mock_song_lib, \
          patch('src.gui.quiz_view_frame.database_manager') as mock_db_manager, \
          patch('src.gui.quiz_view_frame.srs_service') as mock_srs_service, \
          patch('src.gui.quiz_view_frame.QuizSession') as MockQuizSession, \
@@ -37,13 +28,14 @@ def quiz_view(root_window, mock_controller):
         mock_session_instance.get_current_song.return_value = {
             'song_id': 456, 'title': 'Next Song', 'artist': 'Next Artist'
         }
-        # Add attributes needed for the new tests
         mock_session_instance.mode = "Challenge"
         mock_session_instance.score = 7
         mock_session_instance.total_questions = 10
 
-        # Make the QuizView's parent the root_window to satisfy tkinter
-        view = QuizView(parent=root_window, controller=mock_controller)
+        # A mock parent is needed for the widget hierarchy
+        mock_parent = MagicMock()
+
+        view = QuizView(parent=mock_parent, controller=mock_controller)
 
         # Manually set the session and other attributes for testing internal methods
         view.session = mock_session_instance

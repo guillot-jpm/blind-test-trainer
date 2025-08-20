@@ -9,7 +9,7 @@ from src.data.database_manager import (
 )
 
 
-class MainMenuFrame(tk.Frame):
+class MainMenuFrame(ttk.Frame):
     """
     The main menu frame, serving as a dashboard with key statistics and navigation.
     """
@@ -17,70 +17,72 @@ class MainMenuFrame(tk.Frame):
     def __init__(self, parent, controller):
         """
         Initializes the MainMenuFrame.
-
-        Args:
-            parent (tk.Widget): The parent widget.
-            controller (tk.Tk): The main application window (controller).
         """
-        super().__init__(parent)
+        super().__init__(parent, style="TFrame")
         self.controller = controller
 
         # --- Main Container ---
-        main_container = tk.Frame(self)
-        main_container.pack(expand=True)
+        main_container = ttk.Frame(self, style="TFrame")
+        main_container.pack(expand=True, fill="both", padx=20, pady=10)
 
         # --- Title ---
-        title_label = tk.Label(
+        title_label = ttk.Label(
             main_container,
             text="Blind Test Trainer",
-            font=self.controller.title_font
+            style="Title.TLabel"
         )
-        title_label.pack(pady=(20, 10))
+        title_label.pack(fill="x")
 
         # --- Statistics Section ---
-        stats_frame = ttk.LabelFrame(main_container, text="Summary Statistics", padding="10")
-        stats_frame.pack(pady=10, padx=20, fill="x")
+        stats_frame = ttk.LabelFrame(
+            main_container,
+            text="Summary Statistics",
+            style="TLabelframe"
+        )
+        stats_frame.pack(pady=20, padx=20, fill="x")
         stats_frame.columnconfigure(0, weight=1)
 
-        self.total_songs_label = ttk.Label(stats_frame, text="Total Songs: ...", style="Stats.TLabel")
+        self.total_songs_label = ttk.Label(stats_frame, text="Total Songs: ...")
         self.total_songs_label.grid(row=0, column=0, sticky="w", padx=5, pady=2)
 
-        self.decades_label = ttk.Label(stats_frame, text="Decades: ...", style="Stats.TLabel")
+        self.decades_label = ttk.Label(stats_frame, text="Decades: ...")
         self.decades_label.grid(row=1, column=0, sticky="w", padx=5, pady=2)
 
-        self.mastery_label = ttk.Label(stats_frame, text="Mastery: ...", style="Stats.TLabel")
+        self.mastery_label = ttk.Label(stats_frame, text="Mastery: ...")
         self.mastery_label.grid(row=2, column=0, sticky="w", padx=5, pady=2)
 
         self.update_statistics()
 
+        # --- Buttons Frame ---
+        buttons_frame = ttk.Frame(main_container, style="TFrame")
+        buttons_frame.pack(pady=10, fill="x", padx=20)
+        buttons_frame.columnconfigure(0, weight=1)
+
         # --- Session Buttons ---
         start_standard_button = ttk.Button(
-            main_container,
+            buttons_frame,
             text="Start Standard Session",
             command=self.start_standard_session,
-            style="MainMenu.TButton",
-            width=30
+            style="TButton"
         )
-        start_standard_button.pack(pady=10)
+        start_standard_button.grid(row=0, column=0, sticky="ew", pady=5)
 
         start_challenge_button = ttk.Button(
-            main_container,
+            buttons_frame,
             text="Start Challenge Session",
             command=self.start_challenge_session,
-            style="MainMenu.TButton",
-            width=30
+            style="TButton"
         )
-        start_challenge_button.pack(pady=10)
+        start_challenge_button.grid(row=1, column=0, sticky="ew", pady=5)
 
         # --- Library Management Button ---
         manage_library_button = ttk.Button(
-            main_container,
+            buttons_frame,
             text="Manage My Library",
             command=self.manage_library,
-            style="MainMenu.TButton",
-            width=30
+            style="TButton"
         )
-        manage_library_button.pack(pady=20)
+        manage_library_button.grid(row=2, column=0, sticky="ew", pady=(15, 5))
 
     def start_standard_session(self):
         """
