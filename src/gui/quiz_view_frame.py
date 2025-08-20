@@ -1,3 +1,4 @@
+import logging
 import tkinter as tk
 from tkinter import messagebox
 import random
@@ -7,6 +8,7 @@ import time
 import tempfile
 import os
 from pydub import AudioSegment
+from pydub.exceptions import CouldntDecodeError
 import pygame
 
 from src.services.quiz_session import QuizSession
@@ -58,6 +60,13 @@ class QuizView(tk.Frame):
         # --- Center Region Widgets ---
         # This label will be shown/hidden as needed
         self.prompt_label = tk.Label(self.center_region, text="Press Spacebar when you know it!")
+
+        self.skip_message_label = tk.Label(
+            self.center_region,
+            text="Could not find song file. Skipping.",
+            font=("Arial", 14),
+            fg="orange"
+        )
 
         self.play_song_button = tk.Button(
             self.center_region,
@@ -222,6 +231,23 @@ class QuizView(tk.Frame):
         self.session.next_song()
         self.prepare_next_question()
 
+    def show_skip_message(self):
+        """
+        Displays a temporary message when a song is skipped.
+        """
+        # Ensure other central widgets are hidden so the message is visible
+        self.play_song_button.grid_forget()
+        self.prompt_label.grid_forget()
+        self.answer_reveal_frame.grid_forget()
+
+        # Show the message
+        self.skip_message_label.grid(row=0, column=0, sticky="nsew")
+
+        # Schedule it to be hidden after 3-4 seconds.
+        # It gets hidden automatically when prepare_next_question is called,
+        # but this is a fallback.
+        self.after(3500, self.skip_message_label.grid_forget)
+
     def play_song_and_start_round(self):
         """
         Handles the 'Play Song' button click.
@@ -232,8 +258,11 @@ class QuizView(tk.Frame):
 
         try:
             song_audio = AudioSegment.from_file(file_path)
-        except FileNotFoundError:
-            messagebox.showerror("Error", f"Song file not found: {file_path}")
+        except (FileNotFoundError, CouldntDecodeError) as e:
+            logging.warning(f"Could not load audio file '{self.current_song['local_filename']}'. Error: {e}")
+            self.show_skip_message()
+            # Use after() to delay the skip to allow the message to be seen
+            self.after(50, self.proceed_to_next_song)
             return
 
         # Ensure song is long enough for a snippet
