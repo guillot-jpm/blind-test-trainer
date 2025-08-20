@@ -383,19 +383,22 @@ class LibraryManagementFrame(ttk.Frame):
             except Exception as e:
                 messagebox.showerror("Database Error", f"Failed to delete songs: {e}")
 
-    def _search_and_preview(self):
+    def _search_and_preview(self, is_import_mode=False):
         """
         Searches for a track on Spotify based on user input and displays a preview.
+        In import mode, it will not show message boxes for missing info.
         """
         title = self.song_title_entry.get().strip()
         artist = self.artist_entry.get().strip()
         filename = self.local_filename_entry.get().strip()
 
         if not filename:
-            messagebox.showwarning("Missing Information", "Local Filename is required.")
+            if not is_import_mode:
+                messagebox.showwarning("Missing Information", "Local Filename is required.")
             return
         if not title:
-            messagebox.showwarning("Missing Information", "Song Title is required for searching.")
+            if not is_import_mode:
+                messagebox.showwarning("Missing Information", "Song Title is required for searching.")
             return
 
         music_folder = config.get('Paths', 'music_folder', fallback='.')
@@ -429,6 +432,9 @@ class LibraryManagementFrame(ttk.Frame):
 
         except SpotifyAPIError as e:
             self._update_preview_area(f"API Error: {e}", is_error=True)
+            self.add_to_library_button.config(state="disabled")
+        except Exception as e:
+            self._update_preview_area(f"Unexpected Error: {e}", is_error=True)
             self.add_to_library_button.config(state="disabled")
 
 
@@ -553,7 +559,7 @@ class LibraryManagementFrame(ttk.Frame):
 
         # Process the current file
         self._load_song_for_import()
-        self._search_and_preview()
+        self._search_and_preview(is_import_mode=True)
 
         # The `_search_and_preview` is synchronous, but the UI updates.
         # Now, attempt to add the song to the library.
