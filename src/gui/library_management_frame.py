@@ -13,7 +13,7 @@ from src.data.song_library import (
 )
 
 
-class LibraryManagementFrame(tk.Frame):
+class LibraryManagementFrame(ttk.Frame):
     """
     A frame for managing the song library, including adding, viewing,
     searching, editing, and deleting songs.
@@ -23,9 +23,17 @@ class LibraryManagementFrame(tk.Frame):
         """
         Initializes the LibraryManagementFrame.
         """
-        super().__init__(parent)
+        super().__init__(parent, style="TFrame")
         self.controller = controller
         self.preview_data = {}
+
+        # --- Style for preview text area ---
+        self.controller.style.configure("Preview.TText",
+                                        border=2,
+                                        relief="solid",
+                                        font=self.controller.small_font,
+                                        padding=5)
+        self.preview_area_feedback_id = None
 
         # --- Main Layout ---
         self.grid_rowconfigure(1, weight=1)
@@ -33,20 +41,19 @@ class LibraryManagementFrame(tk.Frame):
         self.grid_columnconfigure(1, weight=1)
 
         # --- Top Bar ---
-        top_bar = ttk.Frame(self, padding="10 0 10 10")
+        top_bar = ttk.Frame(self, style="TFrame", padding="0 0 0 5")
         top_bar.grid(row=0, column=0, columnspan=2, sticky="ew")
 
         back_button = ttk.Button(
             top_bar,
             text="< Back to Main Menu",
             command=lambda: controller.show_frame("MainMenuFrame"),
+            style="Back.TButton",
         )
-        back_button.pack(side="left")
+        back_button.pack(side="left", pady=(5, 0))
 
         # --- Library View (Left Side) ---
-        library_frame = ttk.LabelFrame(
-            self, text="My Library", padding="10"
-        )
+        library_frame = ttk.LabelFrame(self, text="My Library")
         library_frame.grid(
             row=1, column=0, sticky="nsew", padx=(10, 5), pady=10
         )
@@ -54,14 +61,16 @@ class LibraryManagementFrame(tk.Frame):
         library_frame.grid_columnconfigure(0, weight=1)
 
         # Search bar for the library
-        search_bar_frame = ttk.Frame(library_frame)
+        search_bar_frame = ttk.Frame(library_frame, style="TFrame")
         search_bar_frame.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 10))
         search_bar_frame.grid_columnconfigure(0, weight=1)
 
         self.search_var = tk.StringVar()
         search_entry = ttk.Entry(search_bar_frame, textvariable=self.search_var)
         search_entry.grid(row=0, column=0, sticky="ew")
-        search_button = ttk.Button(search_bar_frame, text="Search", command=self._search_library)
+        search_button = ttk.Button(
+            search_bar_frame, text="Search", command=self._search_library, style="TButton"
+        )
         search_button.grid(row=0, column=1, padx=(5, 0))
         self.search_var.trace_add("write", lambda *args: self._search_library())
 
@@ -88,64 +97,107 @@ class LibraryManagementFrame(tk.Frame):
         self.tree.bind("<<TreeviewSelect>>", self._on_tree_select)
 
         # Action buttons for the library
-        action_button_frame = ttk.Frame(library_frame)
+        action_button_frame = ttk.Frame(library_frame, style="TFrame")
         action_button_frame.grid(row=2, column=0, columnspan=2, sticky="e", pady=(10, 0))
 
         self.edit_button = ttk.Button(
-            action_button_frame, text="Edit Selected", state="disabled", command=self._edit_selected_song
+            action_button_frame, text="Edit Selected", state="disabled",
+            command=self._edit_selected_song, style="TButton"
         )
         self.edit_button.pack(side="left", padx=5)
 
         self.delete_button = ttk.Button(
-            action_button_frame, text="Delete Selected", state="disabled", command=self._delete_selected_songs
+            action_button_frame, text="Delete Selected", state="disabled",
+            command=self._delete_selected_songs, style="TButton"
         )
         self.delete_button.pack(side="left")
 
         # --- Add Song Form (Right Side) ---
-        add_song_frame = ttk.LabelFrame(
-            self, text="Add New Song", padding="10"
-        )
+        add_song_frame = ttk.LabelFrame(self, text="Add New Song")
         add_song_frame.grid(
             row=1, column=1, sticky="nsew", padx=(5, 10), pady=10
         )
         add_song_frame.grid_columnconfigure(1, weight=1)
 
         # Input fields
-        ttk.Label(add_song_frame, text="Local Filename:").grid(row=0, column=0, sticky="w", pady=2)
+        ttk.Label(add_song_frame, text="Local Filename:").grid(
+            row=0, column=0, sticky="w", pady=2
+        )
         self.local_filename_entry = ttk.Entry(add_song_frame)
         self.local_filename_entry.grid(row=0, column=1, sticky="ew", pady=2)
 
-        ttk.Label(add_song_frame, text="Song Title:").grid(row=1, column=0, sticky="w", pady=2)
+        ttk.Label(add_song_frame, text="Song Title:").grid(
+            row=1, column=0, sticky="w", pady=2
+        )
         self.song_title_entry = ttk.Entry(add_song_frame)
         self.song_title_entry.grid(row=1, column=1, sticky="ew", pady=2)
 
-        ttk.Label(add_song_frame, text="Artist:").grid(row=2, column=0, sticky="w", pady=2)
+        ttk.Label(add_song_frame, text="Artist:").grid(
+            row=2, column=0, sticky="w", pady=2
+        )
         self.artist_entry = ttk.Entry(add_song_frame)
         self.artist_entry.grid(row=2, column=1, sticky="ew", pady=2)
 
         # Search and Add buttons for the form
-        add_form_button_frame = ttk.Frame(add_song_frame)
-        add_form_button_frame.grid(row=3, column=0, columnspan=2, sticky="e", pady=10)
+        add_form_button_frame = ttk.Frame(add_song_frame, style="TFrame")
+        add_form_button_frame.grid(
+            row=3, column=0, columnspan=2, sticky="e", pady=10
+        )
 
-        search_preview_button = ttk.Button(add_form_button_frame, text="Search & Preview", command=self._search_and_preview)
+        search_preview_button = ttk.Button(
+            add_form_button_frame, text="Search & Preview",
+            command=self._search_and_preview, style="TButton"
+        )
         search_preview_button.pack(side="left", padx=5)
 
-        self.add_to_library_button = ttk.Button(add_form_button_frame, text="Add to Library", state="disabled", command=self._add_to_library)
+        self.add_to_library_button = ttk.Button(
+            add_form_button_frame, text="Add to Library", state="disabled",
+            command=self._add_to_library, style="TButton"
+        )
         self.add_to_library_button.pack(side="left")
 
         # Preview Area
         preview_label = ttk.Label(add_song_frame, text="Preview:")
-        preview_label.grid(row=4, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        preview_label.grid(
+            row=4, column=0, columnspan=2, sticky="w", pady=(10, 2)
+        )
 
-        self.preview_area = tk.Text(add_song_frame, height=8, state="disabled", bg="#f0f0f0")
-        self.preview_area.grid(row=5, column=0, columnspan=2, sticky="nsew")
+        preview_text_frame = ttk.Frame(
+            add_song_frame, style="Preview.TFrame", height=120
+        )
+        preview_text_frame.grid(
+            row=5, column=0, columnspan=2, sticky="nsew"
+        )
+        preview_text_frame.grid_rowconfigure(0, weight=1)
+        preview_text_frame.grid_columnconfigure(0, weight=1)
+        # Prevent the frame from shrinking to fit the label inside
+        preview_text_frame.grid_propagate(False)
+
+
+        self.preview_area = ttk.Label(
+            preview_text_frame,
+            text="",
+            wraplength=220,
+            anchor="nw",
+            justify="left",
+            style="TLabel"
+        )
+        self.preview_area.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
         add_song_frame.grid_rowconfigure(5, weight=1)
 
         # Store all songs to filter locally
         self.all_songs = []
+        self.on_show()
 
-        # Populate the treeview on initialization
+    def on_show(self):
+        """
+        Called when the frame is shown. Refreshes the library view.
+        """
         self._populate_treeview()
+        # Reset selection and button states
+        self.tree.selection_set()
+        self._on_tree_select(None)
+
 
     def _populate_treeview(self, songs_to_display=None):
         """
@@ -368,11 +420,12 @@ class LibraryManagementFrame(tk.Frame):
                 local_filename=self.preview_data['local_filename']
             )
 
-            # Refresh treeview to show the new song
             self._populate_treeview()
-
-            # Provide feedback and reset the form
-            self._update_preview_area(f"Successfully added '{self.preview_data['title']}'.")
+            self._update_preview_area(
+                f"Success! Added '{self.preview_data['title']}'.",
+                is_error=False,
+                is_temporary=True
+            )
             self.add_to_library_button.config(state="disabled")
             self.local_filename_entry.delete(0, tk.END)
             self.song_title_entry.delete(0, tk.END)
@@ -384,12 +437,24 @@ class LibraryManagementFrame(tk.Frame):
         except Exception as e:
             messagebox.showerror("Database Error", f"An unexpected error occurred: {e}")
 
-    def _update_preview_area(self, text, is_error=False):
-        """Helper function to update the text in the preview area."""
-        self.preview_area.config(state="normal")
-        self.preview_area.delete("1.0", tk.END)
-        self.preview_area.insert("1.0", text)
+    def _update_preview_area(self, text, is_error=False, is_temporary=False):
+        """
+        Helper function to update the text in the preview area.
+        - `is_error`: Displays the text in red.
+        - `is_temporary`: The message disappears after a few seconds.
+        """
+        # Cancel any pending feedback message reset
+        if self.preview_area_feedback_id:
+            self.after_cancel(self.preview_area_feedback_id)
+            self.preview_area_feedback_id = None
+
         self.preview_area.config(
-            state="disabled",
-            foreground="red" if is_error else "black"
+            text=text,
+            foreground="red" if is_error else "green" if is_temporary else "black"
         )
+
+        # If the message is temporary, schedule it to be cleared
+        if is_temporary:
+            self.preview_area_feedback_id = self.after(
+                4000, lambda: self._update_preview_area("")
+            )

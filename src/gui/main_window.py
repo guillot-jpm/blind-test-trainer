@@ -28,17 +28,59 @@ class MainWindow(tk.Tk):
         """
         super().__init__()
         self.title("Blind Test Trainer")
-        self.geometry("550x550")
+        self.geometry("650x600") # Increased size for better layout
 
         # --- Style and Font configuration ---
         self.style = ttk.Style(self)
-        self.title_font = ("Ubuntu", 18, "bold")
-        self.body_font = ("Ubuntu", 12)
-        self.button_font = ("Ubuntu", 12, "bold")
+        try:
+            self.style.theme_use("clam")
+        except tk.TclError:
+            print("'clam' theme not available, using default.")
 
-        # Configure ttk styles
-        self.style.configure("MainMenu.TButton", font=self.button_font)
-        self.style.configure("Stats.TLabel", font=self.body_font)
+        # Define fonts
+        self.title_font = ("Arial", 18, "bold")
+        self.header_font = ("Arial", 14, "bold")
+        self.body_font = ("Arial", 12)
+        self.button_font = ("Arial", 11, "bold")
+        self.small_font = ("Arial", 10)
+
+        # --- Configure widget styles ---
+        background_color = "#f0f0f0"
+        self.configure(background=background_color)
+
+        # General Label Style
+        self.style.configure("TLabel",
+                             font=self.body_font,
+                             background=background_color)
+        # Title Label Style
+        self.style.configure("Title.TLabel",
+                             font=self.title_font,
+                             padding="10 10 10 20",
+                             anchor="center",
+                             background=background_color)
+        # Header Label Style
+        self.style.configure("Header.TLabel",
+                             font=self.header_font,
+                             background=background_color)
+
+        # General Button Style
+        self.style.configure("TButton",
+                             font=self.button_font,
+                             padding="10 5",
+                             anchor="center")
+        # Back/Navigation Button Style
+        self.style.configure("Back.TButton",
+                             font=self.small_font,
+                             padding="5 2")
+
+        # LabelFrame Style
+        self.style.configure("TLabelframe",
+                             labelmargins="10 0",
+                             padding="10 10",
+                             background=background_color)
+        self.style.configure("TLabelframe.Label",
+                             font=self.header_font,
+                             background=background_color)
 
         db_path = config.get("Paths", "database_file")
         try:
@@ -63,7 +105,7 @@ class MainWindow(tk.Tk):
             )
 
         # Main container to hold all frames
-        container = tk.Frame(self)
+        container = ttk.Frame(self, padding="10")
         container.pack(side="top", fill="both", expand=True)
         container.grid_rowconfigure(0, weight=1)
         container.grid_columnconfigure(0, weight=1)
@@ -86,9 +128,11 @@ class MainWindow(tk.Tk):
         """
         frame = self.frames[page_name]
 
-        # Refresh stats if we are showing the main menu
+        # Special handling for frames that need refreshing
         if page_name == "MainMenuFrame":
             frame.update_statistics()
+        elif page_name == "LibraryManagementFrame":
+            frame.on_show()
 
         frame.tkraise()
 

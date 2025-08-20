@@ -1,6 +1,6 @@
 import logging
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 import random
 import threading
 import time
@@ -17,7 +17,7 @@ from src.services import srs_service
 from src.utils.config_manager import config
 
 
-class QuizView(tk.Frame):
+class QuizView(ttk.Frame):
     """
     The quiz view frame, where the main quiz gameplay occurs.
     """
@@ -25,12 +25,8 @@ class QuizView(tk.Frame):
     def __init__(self, parent, controller):
         """
         Initializes the QuizViewFrame.
-
-        Args:
-            parent (tk.Widget): The parent widget.
-            controller (tk.Tk): The main application window (controller).
         """
-        super().__init__(parent)
+        super().__init__(parent, style="TFrame")
         self.controller = controller
         self.session = None
         self.current_song = None
@@ -41,76 +37,97 @@ class QuizView(tk.Frame):
         # Initialize pygame mixer
         pygame.mixer.init()
 
+        # --- Style for transient messages ---
+        self.controller.style.configure("Warning.TLabel",
+                                        foreground="orange",
+                                        font=self.controller.body_font)
+        self.controller.style.configure("Prompt.TLabel",
+                                        font=self.controller.header_font)
+        self.controller.style.configure("Answer.TLabel",
+                                        font=self.controller.title_font,
+                                        wraplength=500)
+
+
         # --- Main layout frames ---
-        self.top_region = tk.Frame(self)
-        self.center_region = tk.Frame(self)
-        self.bottom_region = tk.Frame(self)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
-        self.top_region.pack(side="top", fill="x", padx=10, pady=5)
-        self.center_region.pack(expand=True, fill="both", padx=10, pady=10)
-        self.bottom_region.pack(side="bottom", fill="x", padx=10, pady=10)
+        top_bar = ttk.Frame(self, style="TFrame", padding="0 0 0 5")
+        top_bar.grid(row=0, column=0, sticky="ew")
 
+        self.center_region = ttk.Frame(self, style="TFrame")
+        self.center_region.grid(row=1, column=0, sticky="nsew")
         self.center_region.grid_rowconfigure(0, weight=1)
         self.center_region.grid_columnconfigure(0, weight=1)
 
-        # --- Top Region Widgets ---
-        self.status_label = tk.Label(self.top_region, text="Welcome!")
-        self.status_label.pack()
+        # --- Top Bar Widgets ---
+        self.quit_button = ttk.Button(
+            top_bar,
+            text="< Quit Session",
+            command=self.quit_session,
+            style="Back.TButton"
+        )
+        self.quit_button.pack(side="left", pady=(5, 0))
+
+        self.status_label = ttk.Label(top_bar, text="Welcome!", anchor="center")
+        self.status_label.pack(side="top", fill="x", expand=True, pady=5)
+
 
         # --- Center Region Widgets ---
-        # This label will be shown/hidden as needed
-        self.prompt_label = tk.Label(self.center_region, text="Press Spacebar when you know it!")
+        self.prompt_label = ttk.Label(
+            self.center_region,
+            text="Press Spacebar when you know it!",
+            style="Prompt.TLabel",
+            anchor="center"
+        )
 
-        self.skip_message_label = tk.Label(
+        self.skip_message_label = ttk.Label(
             self.center_region,
             text="Could not find song file. Skipping.",
-            font=("Arial", 14),
-            fg="orange"
+            style="Warning.TLabel",
+            anchor="center"
         )
 
-        self.play_song_button = tk.Button(
+        self.play_song_button = ttk.Button(
             self.center_region,
             text="Play Song",
-            command=self.play_song_and_start_round
+            command=self.play_song_and_start_round,
+            style="TButton"
         )
-        self.play_song_button.grid(row=0, column=0, sticky="nsew")
+        self.play_song_button.grid(row=0, column=0, sticky="nsew", padx=50, pady=50)
 
         # --- Answer Reveal Widgets (initially hidden) ---
-        self.answer_reveal_frame = tk.Frame(self.center_region)
+        self.answer_reveal_frame = ttk.Frame(self.center_region, style="TFrame")
+        self.answer_reveal_frame.grid_columnconfigure(0, weight=1)
 
-        self.answer_label = tk.Label(
+
+        self.answer_label = ttk.Label(
             self.answer_reveal_frame,
             text="",
-            font=("Arial", 16),
-            wraplength=500
+            style="Answer.TLabel",
+            anchor="center"
         )
-        self.answer_label.pack(pady=20)
+        self.answer_label.grid(row=0, column=0, sticky="ew", pady=(20,10))
 
-        buttons_frame = tk.Frame(self.answer_reveal_frame)
-        buttons_frame.pack(pady=10)
+        buttons_frame = ttk.Frame(self.answer_reveal_frame, style="TFrame")
+        buttons_frame.grid(row=1, column=0, pady=10)
 
-        self.correct_button = tk.Button(
+        self.correct_button = ttk.Button(
             buttons_frame,
             text="I Got It Right",
-            command=lambda: self.handle_user_response(was_correct=True)
+            command=lambda: self.handle_user_response(was_correct=True),
+            style="TButton"
         )
         self.correct_button.pack(side="left", padx=10)
 
-        self.incorrect_button = tk.Button(
+        self.incorrect_button = ttk.Button(
             buttons_frame,
             text="I Was Wrong",
-            command=lambda: self.handle_user_response(was_correct=False)
+            command=lambda: self.handle_user_response(was_correct=False),
+            style="TButton"
         )
         self.incorrect_button.pack(side="right", padx=10)
 
-
-        # --- Bottom Region Widgets ---
-        self.quit_button = tk.Button(
-            self.bottom_region,
-            text="Quit Session",
-            command=self.quit_session
-        )
-        self.quit_button.pack(side="right")
 
     def quit_session(self):
         """
@@ -127,9 +144,6 @@ class QuizView(tk.Frame):
     def start_new_quiz(self, mode: str):
         """
         Starts a new quiz session based on the selected mode.
-
-        Args:
-            mode (str): The selected quiz mode ('Standard' or 'Challenge').
         """
         self.session = None  # Reset session
         song_ids_for_quiz = []
@@ -158,7 +172,7 @@ class QuizView(tk.Frame):
             song_count_config = config.getint(
                 'Settings',
                 'CHALLENGE_MODE_SONG_COUNT',
-                fallback=20  # Fallback in case the value is missing
+                fallback=20
             )
 
             num_to_select = min(song_count_config, total_songs)
@@ -173,30 +187,24 @@ class QuizView(tk.Frame):
         """
         self.current_song = self.session.get_current_song()
         if self.current_song is None:
-            # Quiz is finished
             self.show_quiz_results()
             return
 
-        # Update status label
         q_num, total_q = self.session.get_session_progress()
         self.status_label.config(text=f"Question {q_num} of {total_q}")
 
-        # Reset center region for the next question
         self.answer_reveal_frame.grid_forget()
         self.prompt_label.grid_forget()
-        self.play_song_button.grid(row=0, column=0, sticky="nsew")
+        self.skip_message_label.grid_forget()
+        self.play_song_button.grid(row=0, column=0, sticky="nsew", padx=50, pady=50)
 
     def handle_user_response(self, was_correct: bool):
         """
         Handles the user's feedback (correct/incorrect), logs the result,
         updates SRS data, and moves to the next song.
-
-        Args:
-            was_correct (bool): True if the user's response was correct.
         """
         song_id = self.current_song['song_id']
 
-        # 1. Record play history
         try:
             database_manager.record_play_history(
                 song_id=song_id,
@@ -204,26 +212,22 @@ class QuizView(tk.Frame):
                 reaction_time=self.reaction_time
             )
         except Exception as e:
-            print(f"Error recording play history: {e}")
+            logging.error(f"Error recording play history: {e}")
             messagebox.showerror("Database Error", "Failed to save your progress. Please check the logs.")
 
-        # 2. Record the result in the session
         self.session.record_result(was_correct)
 
-        # 3. Update SRS data
         try:
-            # The srs_service now handles fetching, calculating, and updating.
             srs_service.update_srs_data_for_song(
                 song_id=song_id,
                 was_correct=was_correct,
                 reaction_time=self.reaction_time
             )
         except Exception as e:
-            print(f"Error updating SRS data: {e}")
+            logging.error(f"Error updating SRS data: {e}")
             messagebox.showerror("SRS Error", "Failed to update learning data. Please check the logs.")
-            return # Don't proceed if there's an error
+            return
 
-        # 4. Proceed to the next question
         self.proceed_to_next_song()
 
     def proceed_to_next_song(self):
@@ -235,23 +239,16 @@ class QuizView(tk.Frame):
         """
         Displays a temporary message when a song is skipped.
         """
-        # Ensure other central widgets are hidden so the message is visible
         self.play_song_button.grid_forget()
         self.prompt_label.grid_forget()
         self.answer_reveal_frame.grid_forget()
 
-        # Show the message
         self.skip_message_label.grid(row=0, column=0, sticky="nsew")
-
-        # Schedule it to be hidden after 3-4 seconds.
-        # It gets hidden automatically when prepare_next_question is called,
-        # but this is a fallback.
         self.after(3500, self.skip_message_label.grid_forget)
 
     def play_song_and_start_round(self):
         """
         Handles the 'Play Song' button click.
-        It plays a snippet of the song and starts the timer.
         """
         music_folder = config.get("Paths", "music_folder")
         file_path = f"{music_folder}/{self.current_song['local_filename']}"
@@ -261,22 +258,17 @@ class QuizView(tk.Frame):
         except (FileNotFoundError, CouldntDecodeError) as e:
             logging.warning(f"Could not load audio file '{self.current_song['local_filename']}'. Error: {e}")
             self.show_skip_message()
-            # Use after() to delay the skip to allow the message to be seen
             self.after(50, self.proceed_to_next_song)
             return
 
-        # Ensure song is long enough for a snippet
         if len(song_audio) < 15000:
             messagebox.showerror("Error", "Song is too short to play.")
             return
 
-        # Select a random 10-15 second snippet
         snippet_length = random.randint(10000, 15000)
         max_start = len(song_audio) - snippet_length
         start_time_ms = random.randint(0, max_start)
         snippet = song_audio[start_time_ms:start_time_ms + snippet_length]
-
-        # Fade in and out
         snippet = snippet.fade_in(1000).fade_out(2000)
 
         def playback():
@@ -289,69 +281,54 @@ class QuizView(tk.Frame):
                 while pygame.mixer.music.get_busy():
                     time.sleep(0.1)
             except pygame.error as e:
-                # Schedule the error to be shown in the main thread
                 self.after(0, lambda: messagebox.showerror("Playback Error", f"An error occurred during audio playback:\n\n{e}"))
             finally:
-                # This block runs when the music stops for any reason.
                 pygame.mixer.music.stop()
                 if os.path.exists(temp_filename):
                     os.remove(temp_filename)
 
-        # UI changes
         self.play_song_button.grid_forget()
         self.prompt_label.grid(row=0, column=0, sticky="nsew")
 
-        # Bind spacebar to the handler and update state for the new round
         self.controller.bind("<space>", self.handle_spacebar_press)
         self.round_state = "playing"
-        self.focus_set()  # Move focus to the frame to prevent spacebar-clicking buttons
+        self.focus_set()
 
-        # Start timer, playback, and status checker
         self.start_time = time.time()
         threading.Thread(target=playback, daemon=True).start()
         self.after(100, self.check_music_status)
 
     def check_music_status(self):
         """
-        Polls the status of the music playback. If the music stops and the
-        round is still active, it means the song timed out.
+        Polls the status of music playback.
         """
         if self.round_state != "playing":
-            return  # Stop polling if the round has ended
+            return
 
         if not pygame.mixer.music.get_busy():
-            print("Song finished naturally.")
-            self.round_state = "answering"  # End the round
-            self.reaction_time = -1  # Indicate timeout
+            self.round_state = "answering"
+            self.reaction_time = -1
             self.unbind_spacebar()
             self.show_answer_reveal_state()
         else:
-            # Music is still playing, check again later.
             self.after(100, self.check_music_status)
 
     def handle_spacebar_press(self, event=None):
         """
         Handles the spacebar press event.
-        Stops the timer, fades out the music, and shows the answer.
         """
         if self.round_state != "playing":
             return
 
-        self.round_state = "answering" # End the round
+        self.round_state = "answering"
         self.unbind_spacebar()
 
-        # 1. Stop timer and store reaction time
         reaction_time = time.time() - self.start_time
         self.reaction_time = round(reaction_time, 2)
-        print(f"Reaction time: {self.reaction_time} seconds")
-
-        # 2. Fade out music
         pygame.mixer.music.fadeout(500)
-
-        # 3. Transition to the answer reveal state
         self.after(500, self.show_answer_reveal_state)
 
-        return "break"  # Stop the event from propagating to other widgets
+        return "break"
 
     def unbind_spacebar(self):
         """
@@ -361,26 +338,22 @@ class QuizView(tk.Frame):
 
     def show_answer_reveal_state(self):
         """
-        Transitions the UI to show the song answer and user response options.
+        Transitions the UI to show the song answer.
         """
         self.prompt_label.grid_forget()
 
-        # Update status label to show reaction time
         if self.reaction_time != -1:
             self.status_label.config(text=f"Reaction Time: {self.reaction_time}s")
         else:
             self.status_label.config(text="Time's Up!")
 
-        # Update and show the answer label
         song_info = f"{self.current_song['title']} - {self.current_song['artist']}"
         self.answer_label.config(text=song_info)
-
-        # Show the answer frame
         self.answer_reveal_frame.grid(row=0, column=0, sticky="nsew")
 
     def show_quiz_results(self):
         """
-        Displays the results at the end of the quiz based on the mode.
+        Displays the results at the end of the quiz.
         """
         if self.session.mode == "Challenge":
             score = self.session.score
