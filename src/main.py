@@ -1,6 +1,16 @@
+import logging
 from src.gui.main_window import MainWindow
 from src.utils.config_manager import load_config
 from src.services.spotify_service import initialize_spotify_service
+
+# Configure logging
+logging.basicConfig(
+    level=logging.WARNING,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    filename='app.log',
+    filemode='a'  # 'a' for append
+)
+
 
 if __name__ == "__main__":
     # 1. Load application configuration
