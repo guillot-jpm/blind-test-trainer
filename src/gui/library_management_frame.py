@@ -390,6 +390,7 @@ class LibraryManagementFrame(ttk.Frame):
         """
         title = self.song_title_entry.get().strip()
         artist = self.artist_entry.get().strip()
+        print(f"[DEBUG] Searching for Title: '{title}', Artist: '{artist}'")
         filename = self.local_filename_entry.get().strip()
 
         if not filename:
@@ -415,6 +416,7 @@ class LibraryManagementFrame(ttk.Frame):
             match = spotify_service.search_by_title_and_artist(title, artist) if artist else spotify_service.search_by_title(title)
 
             if match:
+                print("[DEBUG] Spotify search successful. Match:", match['title'], "-", match['artist'])
                 self.preview_data = match
                 self.preview_data['local_filename'] = filename
 
@@ -427,13 +429,16 @@ class LibraryManagementFrame(ttk.Frame):
                 self._update_preview_area(display_text)
                 self.add_to_library_button.config(state="normal")
             else:
+                print("[DEBUG] Spotify search returned no match.")
                 self._update_preview_area("No match found on Spotify.", is_error=True)
                 self.add_to_library_button.config(state="disabled")
 
         except SpotifyAPIError as e:
+            print(f"[DEBUG] Spotify API Error: {e}")
             self._update_preview_area(f"API Error: {e}", is_error=True)
             self.add_to_library_button.config(state="disabled")
         except Exception as e:
+            print(f"[DEBUG] An unexpected error occurred during search: {e}")
             self._update_preview_area(f"Unexpected Error: {e}", is_error=True)
             self.add_to_library_button.config(state="disabled")
 
@@ -558,6 +563,7 @@ class LibraryManagementFrame(ttk.Frame):
             return
 
         # Process the current file
+        print(f"\n[DEBUG] --- Processing file {self.current_import_index + 1} of {len(self.import_session_files)}: {os.path.basename(self.import_session_files[self.current_import_index])} ---")
         self._load_song_for_import()
         self._search_and_preview(is_import_mode=True)
 
@@ -565,8 +571,10 @@ class LibraryManagementFrame(ttk.Frame):
         # Now, attempt to add the song to the library.
         # `preview_data` is set by `_search_and_preview`.
         if self.preview_data:
+            print("[DEBUG] Match found. Attempting to add to library.")
             self._add_to_library(is_import_mode=True)
-        # If no preview data, it's an effective skip.
+        else:
+            print("[DEBUG] No match found or error occurred. Skipping file.")
 
         # Advance to the next file
         self.current_import_index += 1
