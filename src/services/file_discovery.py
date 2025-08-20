@@ -26,17 +26,30 @@ def find_new_songs(music_folder_path, existing_filenames):
         # Or raise an error, depending on desired behavior for invalid paths
         return []
 
+    print(f"\n[DEBUG] Starting file discovery in: {music_folder_path}")
+    print(f"[DEBUG] Number of existing filenames in database: {len(existing_filenames)}")
+
     for root, _, files in os.walk(music_folder_path):
         for filename in files:
+            print(f"\n[DEBUG] Checking file: {filename}")
+
             # Check if the file has a recognized audio extension
-            if any(filename.lower().endswith(ext) for ext in audio_extensions):
-                # Normalize and lowercase the filename for comparison
-                normalized_filename = unicodedata.normalize('NFC', filename.lower())
+            is_audio = any(filename.lower().endswith(ext) for ext in audio_extensions)
+            if not is_audio:
+                print(f"[DEBUG] -> Skipped: Not a recognized audio file extension.")
+                continue
 
-                # Compare the basename against the existing filenames
-                if normalized_filename not in existing_filenames:
-                    full_path = os.path.join(root, filename)
-                    # Ensure the path is absolute as per the requirement
-                    new_song_paths.append(os.path.abspath(full_path))
+            # Normalize and lowercase the filename for comparison
+            normalized_filename = unicodedata.normalize('NFC', filename.lower())
+            print(f"[DEBUG] -> Is audio file. Normalized name: '{normalized_filename}'")
 
+            # Compare the basename against the existing filenames
+            if normalized_filename not in existing_filenames:
+                print(f"[DEBUG] -> Added for import: Normalized name not found in existing files.")
+                full_path = os.path.join(root, filename)
+                new_song_paths.append(os.path.abspath(full_path))
+            else:
+                print(f"[DEBUG] -> Skipped: Normalized name found in existing files.")
+
+    print(f"\n[DEBUG] File discovery complete. Found {len(new_song_paths)} new songs.")
     return new_song_paths
