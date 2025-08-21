@@ -7,6 +7,7 @@ import logging
 from src.gui.main_menu_frame import MainMenuFrame
 from src.gui.quiz_view_frame import QuizView
 from src.gui.library_management_frame import LibraryManagementFrame
+from src.gui.dashboard_frame import DashboardFrame
 from src.data.database_manager import (
     connect,
     disconnect,
@@ -118,7 +119,7 @@ class MainWindow(tk.Tk):
 
         self.frames = {}
 
-        for F in (MainMenuFrame, QuizView, LibraryManagementFrame):
+        for F in (MainMenuFrame, QuizView, LibraryManagementFrame, DashboardFrame):
             page_name = F.__name__
             frame = F(parent=self.container, controller=self)
             self.frames[page_name] = frame
@@ -134,9 +135,7 @@ class MainWindow(tk.Tk):
         frame = self.frames[page_name]
 
         # Special handling for frames that need refreshing
-        if page_name == "MainMenuFrame":
-            frame.update_statistics()
-        elif page_name == "LibraryManagementFrame":
+        if page_name == "LibraryManagementFrame":
             frame.on_show()
 
         frame.tkraise()
