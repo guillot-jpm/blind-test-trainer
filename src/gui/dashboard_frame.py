@@ -212,7 +212,7 @@ class DashboardFrame(ttk.Frame):
             return
 
         # 4. Create and configure Treeview
-        columns = ("Title", "Artist", "Success Rate")
+        columns = ("Title", "Artist", "Success Rate", "Attempts")
         tree = ttk.Treeview(
             self.problem_songs_frame,
             columns=columns,
@@ -224,11 +224,13 @@ class DashboardFrame(ttk.Frame):
         tree.heading("Title", text="Title")
         tree.heading("Artist", text="Artist")
         tree.heading("Success Rate", text="Success Rate")
+        tree.heading("Attempts", text="Attempts")
 
         # Configure column widths
         tree.column("Title", width=150, stretch=tk.YES)
         tree.column("Artist", width=100, stretch=tk.YES)
         tree.column("Success Rate", width=80, anchor="e")
+        tree.column("Attempts", width=60, anchor="center")
 
         # 5. Populate the Treeview
         for song in problem_songs:
@@ -237,7 +239,12 @@ class DashboardFrame(ttk.Frame):
             tree.insert(
                 "",
                 tk.END,
-                values=(song['title'], song['artist'], success_rate_str)
+                values=(
+                    song['title'],
+                    song['artist'],
+                    success_rate_str,
+                    song['attempts']
+                )
             )
 
         tree.pack(expand=True, fill='both', padx=5, pady=5)
