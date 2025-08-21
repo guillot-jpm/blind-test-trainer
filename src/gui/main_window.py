@@ -137,6 +137,8 @@ class MainWindow(tk.Tk):
         # Special handling for frames that need refreshing
         if page_name == "LibraryManagementFrame":
             frame.on_show()
+        elif page_name == "DashboardFrame":
+            frame.refresh_charts()
 
         frame.tkraise()
 

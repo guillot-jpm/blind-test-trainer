@@ -4,3 +4,4 @@ thefuzz
 python-levenshtein
 pydub
 pygame
+matplotlib
