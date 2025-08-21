@@ -9,6 +9,7 @@ A Python application to help users train for blind tests (Guess the Song). This 
 *   **Library Management:** Build and manage your own song library.
 *   **SRS Learning:** Learn songs effectively using a Spaced Repetition System.
 *   **Challenge Mode:** Test your knowledge with a quiz-style challenge.
+*   **Statistics Dashboard:** Visualize your learning progress with charts and identify your problem songs.
 *   **Spotify Integration:** Fetch song metadata from Spotify.
 
 ## Setup Instructions
