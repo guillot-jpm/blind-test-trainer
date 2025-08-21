@@ -275,8 +275,9 @@ def get_problem_songs(limit=5):
 
     Returns:
         list: An ordered list of dictionaries, where each dictionary
-              contains 'song_id', 'title', 'artist', and 'success_rate'.
-              Returns an empty list on error or if there's no play history.
+              contains 'song_id', 'title', 'artist', 'success_rate',
+              and 'attempts'. Returns an empty list on error or if
+              there's no play history.
     """
     problem_songs = []
     try:
@@ -287,11 +288,12 @@ def get_problem_songs(limit=5):
                 s.song_id,
                 s.title,
                 s.artist,
-                SUM(ph.was_correct) * 1.0 / COUNT(ph.history_id) as success_rate
+                SUM(ph.was_correct) * 1.0 / COUNT(ph.history_id) as success_rate,
+                COUNT(ph.history_id) as attempts
             FROM play_history ph
             JOIN songs s ON ph.song_id = s.song_id
             GROUP BY s.song_id
-            ORDER BY success_rate ASC
+            ORDER BY success_rate ASC, attempts DESC
             LIMIT ?
         """, (limit,))
 

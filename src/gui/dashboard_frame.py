@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from src.data.database_manager import get_mastery_distribution, get_practice_history
+from src.data.database_manager import get_mastery_distribution, get_practice_history, get_problem_songs
 
 
 class DashboardFrame(ttk.Frame):
@@ -59,13 +59,13 @@ class DashboardFrame(ttk.Frame):
         )
         self.mastery_chart_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
 
-        problem_songs_frame = ttk.LabelFrame(
+        self.problem_songs_frame = ttk.LabelFrame(
             main_container,
             text="Problem Songs",
             style="TLabelframe"
         )
-        problem_songs_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
-        ttk.Label(problem_songs_frame, text="[Problem Songs List Placeholder]").pack(padx=5, pady=5)
+        self.problem_songs_frame.grid(row=1, column=1, sticky="nsew", padx=10, pady=10)
+        ttk.Label(self.problem_songs_frame, text="[Problem Songs List Placeholder]").pack(padx=5, pady=5)
 
         # Bottom Row
         self.history_chart_frame = ttk.LabelFrame(
@@ -77,6 +77,7 @@ class DashboardFrame(ttk.Frame):
 
         self._create_mastery_chart()
         self._create_history_chart()
+        self._create_problem_songs_view()
 
     def _create_mastery_chart(self):
         """
@@ -188,9 +189,70 @@ class DashboardFrame(ttk.Frame):
         self.history_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
 
+    def _create_problem_songs_view(self):
+        """
+        Creates and populates the view for problem songs.
+        """
+        # 1. Clear any existing widgets
+        for widget in self.problem_songs_frame.winfo_children():
+            widget.destroy()
+
+        # 2. Get data
+        problem_songs = get_problem_songs(limit=5)
+
+        # 3. Handle case with no data
+        if not problem_songs:
+            no_data_label = ttk.Label(
+                self.problem_songs_frame,
+                text="Play some songs to see your stats!",
+                style="Muted.TLabel",
+                anchor="center"
+            )
+            no_data_label.pack(expand=True, fill="both", padx=10, pady=10)
+            return
+
+        # 4. Create and configure Treeview
+        columns = ("Title", "Artist", "Success Rate", "Attempts")
+        tree = ttk.Treeview(
+            self.problem_songs_frame,
+            columns=columns,
+            show="headings",
+            height=5  # Show 5 rows
+        )
+
+        # Define headings
+        tree.heading("Title", text="Title")
+        tree.heading("Artist", text="Artist")
+        tree.heading("Success Rate", text="Success Rate")
+        tree.heading("Attempts", text="Attempts")
+
+        # Configure column widths
+        tree.column("Title", width=150, stretch=tk.YES)
+        tree.column("Artist", width=100, stretch=tk.YES)
+        tree.column("Success Rate", width=80, anchor="e")
+        tree.column("Attempts", width=60, anchor="center")
+
+        # 5. Populate the Treeview
+        for song in problem_songs:
+            # Format success rate as a percentage string
+            success_rate_str = f"{song['success_rate']:.0%}"
+            tree.insert(
+                "",
+                tk.END,
+                values=(
+                    song['title'],
+                    song['artist'],
+                    success_rate_str,
+                    song['attempts']
+                )
+            )
+
+        tree.pack(expand=True, fill='both', padx=5, pady=5)
+
     def refresh_charts(self):
         """
         Public method to refresh all charts in the dashboard.
         """
         self._create_mastery_chart()
         self._create_history_chart()
+        self._create_problem_songs_view()
