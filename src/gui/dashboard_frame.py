@@ -1,10 +1,11 @@
 import tkinter as tk
 from tkinter import ttk
+from datetime import date, timedelta
 
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
-from src.data.database_manager import get_mastery_distribution
+from src.data.database_manager import get_mastery_distribution, get_practice_history
 
 
 class DashboardFrame(ttk.Frame):
@@ -48,6 +49,7 @@ class DashboardFrame(ttk.Frame):
 
         # --- Placeholder Frames for Charts ---
         self.mastery_canvas = None  # To hold the chart widget
+        self.history_canvas = None  # To hold the history chart widget
 
         # Top Row
         self.mastery_chart_frame = ttk.LabelFrame(
@@ -56,7 +58,6 @@ class DashboardFrame(ttk.Frame):
             style="TLabelframe"
         )
         self.mastery_chart_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
-        ttk.Label(self.mastery_chart_frame, text="[Mastery Chart Placeholder]").pack(padx=5, pady=5)
 
         problem_songs_frame = ttk.LabelFrame(
             main_container,
@@ -67,15 +68,15 @@ class DashboardFrame(ttk.Frame):
         ttk.Label(problem_songs_frame, text="[Problem Songs List Placeholder]").pack(padx=5, pady=5)
 
         # Bottom Row
-        history_chart_frame = ttk.LabelFrame(
+        self.history_chart_frame = ttk.LabelFrame(
             main_container,
             text="Practice History",
             style="TLabelframe"
         )
-        history_chart_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
-        ttk.Label(history_chart_frame, text="[Practice History Chart Placeholder]").pack(padx=5, pady=5)
+        self.history_chart_frame.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=10, pady=10)
 
         self._create_mastery_chart()
+        self._create_history_chart()
 
     def _create_mastery_chart(self):
         """
@@ -120,8 +121,76 @@ class DashboardFrame(ttk.Frame):
         self.mastery_canvas.draw()
         self.mastery_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+    def _create_history_chart(self):
+        """
+        Creates and embeds the practice history combination chart.
+        """
+        # 1. Clear any existing chart
+        for widget in self.history_chart_frame.winfo_children():
+            widget.destroy()
+
+        if self.history_canvas:
+            self.history_canvas.get_tk_widget().destroy()
+
+        # 2. Get data
+        history_data = get_practice_history(days=30)
+
+        # 3. Process data for the last 30 days
+        today = date.today()
+        all_dates = [today - timedelta(days=i) for i in range(29, -1, -1)]
+
+        labels = [d.strftime('%m-%d') for d in all_dates]
+        attempts = []
+        success_ratios = []
+
+        for dt in all_dates:
+            iso_date = dt.isoformat()
+            if iso_date in history_data:
+                day_data = history_data[iso_date]
+                num_attempts = day_data['attempts']
+                num_correct = day_data['correct']
+                attempts.append(num_attempts)
+                ratio = (num_correct / num_attempts) * 100 if num_attempts > 0 else 0
+                success_ratios.append(ratio)
+            else:
+                attempts.append(0)
+                success_ratios.append(0)
+
+        # 4. Create Matplotlib Figure and Subplot
+        fig = Figure(figsize=(12, 5), dpi=100)
+        fig.patch.set_facecolor('#f0f0f0')
+        ax1 = fig.add_subplot(111)
+
+        # 5. Bar chart for attempts (Primary Y-axis)
+        bar_color = 'skyblue'
+        ax1.set_ylabel('Number of Songs Attempted', color=bar_color)
+        ax1.bar(labels, attempts, color=bar_color, label='Songs Attempted')
+        ax1.tick_params(axis='y', labelcolor=bar_color)
+        ax1.set_ylim(0, max(attempts) * 1.15 if any(attempts) else 10)
+        ax1.tick_params(axis='x', rotation=45)
+
+        # 6. Line graph for success ratio (Secondary Y-axis)
+        ax2 = ax1.twinx()
+        line_color = 'salmon'
+        ax2.set_ylabel('Daily Success Ratio (%)', color=line_color)
+        ax2.plot(labels, success_ratios, color=line_color, marker='o', linestyle='-', label='Success Ratio (%)')
+        ax2.tick_params(axis='y', labelcolor=line_color)
+        ax2.set_ylim(0, 105)
+
+        # 7. Customize the plot
+        ax1.set_title("Daily Practice History (Last 30 Days)", fontsize=14, pad=20)
+        fig.legend(loc='upper left', bbox_to_anchor=(0.1, 0.9))
+        fig.tight_layout(rect=[0, 0, 1, 0.95]) # Adjust layout to prevent title overlap
+
+        # 8. Embed the plot in Tkinter
+        self.history_canvas = FigureCanvasTkAgg(fig, master=self.history_chart_frame)
+        self.history_canvas.draw()
+        self.history_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
+
     def refresh_charts(self):
         """
         Public method to refresh all charts in the dashboard.
         """
         self._create_mastery_chart()
+        self._create_history_chart()
