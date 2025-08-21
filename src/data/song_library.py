@@ -167,6 +167,7 @@ def get_all_songs_for_view():
             s.title,
             s.artist,
             s.release_year,
+            s.local_filename,
             sr.next_review_date
         FROM songs s
         LEFT JOIN spaced_repetition sr ON s.song_id = sr.song_id

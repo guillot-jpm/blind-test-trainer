@@ -29,7 +29,7 @@ def test_find_new_songs_basic(music_folder):
     """Test finding new songs in a directory structure."""
     # song1.mp3, song2.wav, song3.m4a, song4.ogg are new
     # AlreadyExists.flac is already in the database
-    existing_filenames = {"AlreadyExists.flac"}
+    existing_filenames = {"alreadyexists.flac"}
 
     new_songs = find_new_songs(music_folder, existing_filenames)
 
@@ -47,7 +47,7 @@ def test_find_new_songs_all_exist(music_folder):
     existing_filenames = {
         "song1.mp3",
         "song2.wav",
-        "AlreadyExists.flac",
+        "alreadyexists.flac",
         "song3.m4a",
         "song4.ogg",
     }
