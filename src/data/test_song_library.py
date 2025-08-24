@@ -116,3 +116,23 @@ def test_get_due_songs(db_connection):
     due_songs = song_library.get_due_songs()
     assert song_id1 in due_songs
     assert song_id2 in due_songs
+
+
+def test_update_and_get_album_art(db_connection):
+    """Test updating and retrieving album art for a song."""
+    song_id = song_library.add_song("Art Song", "Artist", 2023, "art.mp3")
+
+    # 1. Test that art is initially None
+    assert song_library.get_album_art(song_id) is None
+
+    # 2. Update with some sample binary data
+    fake_image_data = b'\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4\x89'
+    song_library.update_album_art(song_id, fake_image_data)
+
+    # 3. Retrieve and verify the data
+    retrieved_art = song_library.get_album_art(song_id)
+    assert retrieved_art is not None
+    assert retrieved_art == fake_image_data
+
+    # 4. Test getting art for a non-existent song
+    assert song_library.get_album_art(999) is None

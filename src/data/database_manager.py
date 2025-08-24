@@ -10,6 +10,7 @@ import datetime
 import logging
 from datetime import date, timedelta
 from src.data.schema import ALL_TABLES
+from src.data.migrations import run_migrations
 
 # This will hold the single, application-wide database connection.
 _connection = None
@@ -100,6 +101,9 @@ def initialize_database():
         for table_query in ALL_TABLES:
             cursor.execute(table_query)
         _connection.commit()
+
+        # After creating tables, run any pending migrations.
+        run_migrations(_connection)
     except (sqlite3.Error, RuntimeError) as e:
         # This will catch both SQL errors and errors from get_cursor()
         # if the connection isn't open.
