@@ -262,3 +262,41 @@ def get_due_songs():
     # fetchall() returns a list of tuples, e.g., [(1,), (2,)].
     # We use a list comprehension to flatten it into [1, 2].
     return [item[0] for item in cursor.fetchall()]
+
+
+def update_album_art(song_id, image_data):
+    """
+    Saves the album art image data for a specific song.
+
+    Args:
+        song_id (int): The ID of the song to update.
+        image_data (bytes): The binary image data (as a blob).
+    """
+    try:
+        cursor = get_cursor()
+        cursor.execute("""
+            UPDATE songs
+            SET album_art_blob = ?
+            WHERE song_id = ?
+        """, (image_data, song_id))
+        cursor.connection.commit()
+    except sqlite3.Error as e:
+        logging.error(f"Failed to update album art for song {song_id}: {e}")
+        cursor.connection.rollback()
+        raise
+
+
+def get_album_art(song_id):
+    """
+    Retrieves the album art for a specific song.
+
+    Args:
+        song_id (int): The ID of the song.
+
+    Returns:
+        bytes: The binary image data as a blob, or None if no art is found.
+    """
+    cursor = get_cursor()
+    cursor.execute("SELECT album_art_blob FROM songs WHERE song_id = ?", (song_id,))
+    result = cursor.fetchone()
+    return result[0] if result and result[0] is not None else None
