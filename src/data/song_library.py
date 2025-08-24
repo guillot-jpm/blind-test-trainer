@@ -8,7 +8,9 @@ It includes functions for adding, retrieving, and listing songs.
 import sqlite3
 from datetime import date
 import logging
+
 from src.data.database_manager import get_cursor
+from src.services import spotify_service
 
 class DuplicateSongError(Exception):
     """Exception raised when trying to add a song that already exists."""
@@ -300,3 +302,56 @@ def get_album_art(song_id):
     cursor.execute("SELECT album_art_blob FROM songs WHERE song_id = ?", (song_id,))
     result = cursor.fetchone()
     return result[0] if result and result[0] is not None else None
+
+
+def get_album_art_for_song(song_id):
+    """
+    Retrieves album art for a song, fetching from Spotify if not locally cached.
+
+    This function first checks the local database. If no art is found, it
+    fetches the art from Spotify using the song's Spotify ID, caches it
+    in the database, and then returns the art.
+
+    Args:
+        song_id (int): The ID of the song.
+
+    Returns:
+        bytes: The binary image data, or None if no art is found either
+               locally or on Spotify.
+    """
+    # 1. Try to get the art from the local database first.
+    album_art = get_album_art(song_id)
+    if album_art:
+        logging.debug(f"Album art for song {song_id} found in cache.")
+        return album_art
+
+    # 2. If not in the DB, get the song's Spotify ID.
+    logging.debug(f"Art not cached for song {song_id}. Attempting fetch from Spotify.")
+    song_record = get_song_by_id(song_id)
+    if not song_record:
+        logging.warning(f"Cannot fetch album art: Song with ID {song_id} not found.")
+        return None
+
+    # song_record is a tuple, spotify_id is at index 7
+    spotify_id = song_record[7]
+    if not spotify_id:
+        logging.warning(f"Cannot fetch album art: No Spotify ID for song {song_id}.")
+        return None
+
+    # 3. Fetch the album art from Spotify.
+    image_data = spotify_service.fetch_album_art_data(spotify_id)
+
+    # 4. If found, save it to the database before returning.
+    if image_data:
+        logging.info(f"Successfully fetched album art for song {song_id} from Spotify.")
+        try:
+            update_album_art(song_id, image_data)
+            logging.debug(f"Album art for song {song_id} saved to cache.")
+        except Exception as e:
+            # Log the error, but don't prevent the image from being returned.
+            logging.error(f"Failed to cache album art for song {song_id}: {e}")
+        return image_data
+
+    # 5. If not found on Spotify, return None.
+    logging.warning(f"Album art for song {song_id} (Spotify ID: {spotify_id}) not found on Spotify.")
+    return None
