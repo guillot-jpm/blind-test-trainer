@@ -14,7 +14,10 @@ from src.data.song_library import (
     get_all_songs_for_view,
     delete_songs_by_id,
     update_song_details,
+    get_song_by_id,
+    update_album_art,
 )
+from src.gui.edit_song_dialog import EditSongDialog
 
 
 class LibraryManagementFrame(ttk.Frame):
@@ -323,61 +326,74 @@ class LibraryManagementFrame(ttk.Frame):
 
     def _edit_selected_song(self):
         """
-        Opens a dialog to edit the selected song by providing a new Spotify ID.
-        Fetches new metadata from Spotify and updates the local database.
+        Opens a dedicated dialog to edit the details of the selected song.
         """
         selected_items = self.tree.selection()
         if not selected_items:
             return
 
-        song_id_str = selected_items[0]
-        song_id = int(song_id_str)
+        song_id = int(selected_items[0])
+        song_record_tuple = get_song_by_id(song_id)
 
-        # Find the current Spotify ID to pre-fill the dialog
-        selected_song = next((s for s in self.all_songs if s['song_id'] == song_id), None)
-        current_spotify_id = selected_song.get('spotify_id', '') if selected_song else ''
-
-        new_spotify_id = simpledialog.askstring(
-            "Edit Song via Spotify ID",
-            "Enter the correct Spotify Track ID:",
-            initialvalue=current_spotify_id,
-            parent=self
-        )
-
-        if not new_spotify_id or not new_spotify_id.strip():
+        if not song_record_tuple:
+            messagebox.showerror("Error", f"Could not retrieve details for song ID: {song_id}")
             return
 
+        # Map the raw tuple from the database to a dictionary.
+        song_data = {
+            'song_id': song_record_tuple[0],
+            'title': song_record_tuple[1],
+            'artist': song_record_tuple[2],
+            'release_year': song_record_tuple[3],
+            'spotify_id': song_record_tuple[7] or ''
+        }
+        original_spotify_id = song_data['spotify_id']
+
+        # Open the modal dialog to edit the song
+        dialog = EditSongDialog(self, song_data)
+        new_data = dialog.result # This will block until the dialog is closed
+
+        if new_data:
+            try:
+                # Update the database with the new details from the dialog
+                update_song_details(
+                    song_id=song_id,
+                    title=new_data['title'],
+                    artist=new_data['artist'],
+                    release_year=new_data['release_year'],
+                    spotify_id=new_data['spotify_id']
+                )
+
+                # If Spotify ID changed, fetch new album art in the background
+                if new_data['spotify_id'] and new_data['spotify_id'] != original_spotify_id:
+                    thread = threading.Thread(
+                        target=self._update_album_art_worker,
+                        args=(song_id, new_data['spotify_id']),
+                        daemon=True
+                    )
+                    thread.start()
+
+                self._populate_treeview()  # Refresh the library view
+                messagebox.showinfo("Success", "Song details updated successfully.")
+
+            except Exception as e:
+                messagebox.showerror("Update Error", f"An unexpected error occurred: {e}")
+
+    def _update_album_art_worker(self, song_id, spotify_id):
+        """
+        Worker function to fetch and update album art for an existing song.
+        """
+        logging.info(f"Starting album art update for song ID {song_id} with Spotify ID: {spotify_id}")
         try:
-            # Fetch new track details from Spotify
-            self._update_preview_area("Fetching new song data from Spotify...")
-            self.update_idletasks()
+            image_data = spotify_service.fetch_album_art_data(spotify_id)
+            update_album_art(song_id, image_data)
 
-            new_track_info = spotify_service.get_track_by_id(new_spotify_id.strip())
-
-            if not new_track_info:
-                messagebox.showerror("Not Found", f"Could not find a track with ID: {new_spotify_id}")
-                self._update_preview_area("") # Clear preview area
-                return
-
-            # Update the database with the new details
-            update_song_details(
-                song_id=song_id,
-                title=new_track_info['title'],
-                artist=new_track_info['artist'],
-                release_year=new_track_info['release_year'],
-                spotify_id=new_track_info['spotify_id']
-            )
-
-            self._populate_treeview() # Refresh the view
-            self._update_preview_area("") # Clear preview area
-            messagebox.showinfo("Success", "Song details updated successfully.")
-
-        except SpotifyAPIError as e:
-            messagebox.showerror("API Error", f"Could not fetch data from Spotify: {e}")
-            self._update_preview_area("")
+            if image_data:
+                logging.info(f"Successfully updated album art for song {song_id}.")
+            else:
+                logging.warning(f"No new album art found for {spotify_id}. Old art cleared.")
         except Exception as e:
-            messagebox.showerror("Update Error", f"An unexpected error occurred: {e}")
-            self._update_preview_area("")
+            logging.error(f"Error updating album art for song {song_id}: {e}")
 
     def _delete_selected_songs(self):
         """
