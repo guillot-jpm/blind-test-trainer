@@ -5,3 +5,4 @@ python-levenshtein
 pydub
 pygame
 matplotlib
+requests
