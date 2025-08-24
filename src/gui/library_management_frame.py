@@ -154,10 +154,22 @@ class LibraryManagementFrame(ttk.Frame):
         self.artist_entry = ttk.Entry(self.add_song_frame)
         self.artist_entry.grid(row=2, column=1, sticky="ew", pady=2)
 
+        ttk.Label(self.add_song_frame, text="Release Year:").grid(
+            row=3, column=0, sticky="w", pady=2
+        )
+        self.release_year_entry = ttk.Entry(self.add_song_frame)
+        self.release_year_entry.grid(row=3, column=1, sticky="ew", pady=2)
+
+        ttk.Label(self.add_song_frame, text="Spotify ID (Optional):").grid(
+            row=4, column=0, sticky="w", pady=2
+        )
+        self.spotify_id_entry = ttk.Entry(self.add_song_frame)
+        self.spotify_id_entry.grid(row=4, column=1, sticky="ew", pady=2)
+
         # Search and Add buttons for the form
         self.add_form_button_frame = ttk.Frame(self.add_song_frame, style="TFrame")
         self.add_form_button_frame.grid(
-            row=3, column=0, columnspan=2, sticky="e", pady=10
+            row=5, column=0, columnspan=2, sticky="e", pady=10
         )
 
         self.search_preview_button = ttk.Button(
@@ -188,14 +200,14 @@ class LibraryManagementFrame(ttk.Frame):
         # Preview Area
         preview_label = ttk.Label(self.add_song_frame, text="Preview:")
         preview_label.grid(
-            row=4, column=0, columnspan=2, sticky="w", pady=(10, 2)
+            row=6, column=0, columnspan=2, sticky="w", pady=(10, 2)
         )
 
         preview_text_frame = ttk.Frame(
             self.add_song_frame, style="Preview.TFrame", height=120
         )
         preview_text_frame.grid(
-            row=5, column=0, columnspan=2, sticky="nsew"
+            row=7, column=0, columnspan=2, sticky="nsew"
         )
         preview_text_frame.grid_rowconfigure(0, weight=1)
         preview_text_frame.grid_columnconfigure(0, weight=1)
@@ -212,7 +224,7 @@ class LibraryManagementFrame(ttk.Frame):
             style="TLabel"
         )
         self.preview_area.grid(row=0, column=0, sticky="nsew", padx=5, pady=5)
-        self.add_song_frame.grid_rowconfigure(5, weight=1)
+        self.add_song_frame.grid_rowconfigure(7, weight=1)
 
         # Store all songs to filter locally
         self.all_songs = []
@@ -389,7 +401,9 @@ class LibraryManagementFrame(ttk.Frame):
     def _search_and_preview(self):
         """
         Searches for a track on Spotify based on user input and displays a preview.
+        Prioritizes Spotify ID if provided.
         """
+        spotify_id = self.spotify_id_entry.get().strip()
         title = self.song_title_entry.get().strip()
         artist = self.artist_entry.get().strip()
         filename = self.local_filename_entry.get().strip()
@@ -397,26 +411,51 @@ class LibraryManagementFrame(ttk.Frame):
         if not filename:
             messagebox.showwarning("Missing Information", "Local Filename is required.")
             return
-        if not title:
-            messagebox.showwarning("Missing Information", "Song Title is required for searching.")
+
+        # A search term (either Spotify ID or Title) is required.
+        if not spotify_id and not title:
+            messagebox.showwarning(
+                "Missing Information",
+                "Please provide a Spotify ID or a Song Title to search."
+            )
             return
 
         music_folder = config.get('Paths', 'music_folder', fallback='.')
         file_path = os.path.join(music_folder, filename)
         if not os.path.exists(file_path):
-            self._update_preview_area(f"Error: File '{filename}' not found in music folder.", is_error=True)
+            self._update_preview_area(
+                f"Error: File '{filename}' not found in music folder.", is_error=True
+            )
             self.add_to_library_button.config(state="disabled")
             return
 
         self._update_preview_area("Searching...")
         self.update_idletasks()
+        match = None
 
         try:
-            match = spotify_service.search_by_title_and_artist(title, artist) if artist else spotify_service.search_by_title(title)
+            # Prioritize Spotify ID search
+            if spotify_id:
+                match = spotify_service.get_track_by_id(spotify_id)
+            # Fallback to title/artist search
+            else:
+                match = spotify_service.search_by_title_and_artist(title, artist) if artist else spotify_service.search_by_title(title)
 
             if match:
                 self.preview_data = match
                 self.preview_data['local_filename'] = filename
+
+                # --- Auto-populate UI fields ---
+                # Clear existing content
+                self.song_title_entry.delete(0, tk.END)
+                self.artist_entry.delete(0, tk.END)
+                self.release_year_entry.delete(0, tk.END)
+
+                # Insert new content
+                self.song_title_entry.insert(0, match['title'])
+                self.artist_entry.insert(0, match['artist'])
+                self.release_year_entry.insert(0, match['release_year'])
+                # /-- End auto-population --/
 
                 display_text = (
                     f"Title: {match['title']}\n"
@@ -427,7 +466,8 @@ class LibraryManagementFrame(ttk.Frame):
                 self._update_preview_area(display_text)
                 self.add_to_library_button.config(state="normal")
             else:
-                self._update_preview_area("No match found on Spotify.", is_error=True)
+                search_term = f"ID: {spotify_id}" if spotify_id else f"title: {title}"
+                self._update_preview_area(f"No match found on Spotify for {search_term}.", is_error=True)
                 self.add_to_library_button.config(state="disabled")
 
         except SpotifyAPIError as e:
@@ -449,10 +489,11 @@ class LibraryManagementFrame(ttk.Frame):
         song_added_successfully = False
 
         try:
+            # Get details from the UI fields, allowing for manual edits.
             add_song(
-                title=self.preview_data['title'],
-                artist=self.preview_data['artist'],
-                release_year=self.preview_data['release_year'],
+                title=self.song_title_entry.get(),
+                artist=self.artist_entry.get(),
+                release_year=self.release_year_entry.get(),
                 spotify_id=self.preview_data['spotify_id'],
                 local_filename=self.preview_data['local_filename']
             )
@@ -480,7 +521,7 @@ class LibraryManagementFrame(ttk.Frame):
             # In manual mode, we only reset the form upon a successful add.
             self._populate_treeview()
             self._update_preview_area(
-                f"Success! Added '{self.preview_data['title']}'.",
+                f"Success! Added '{self.song_title_entry.get()}'.",
                 is_error=False,
                 is_temporary=True
             )
@@ -488,6 +529,8 @@ class LibraryManagementFrame(ttk.Frame):
             self.local_filename_entry.delete(0, tk.END)
             self.song_title_entry.delete(0, tk.END)
             self.artist_entry.delete(0, tk.END)
+            self.release_year_entry.delete(0, tk.END)
+            self.spotify_id_entry.delete(0, tk.END)
             self.preview_data = {}
 
     def _start_import_session(self):
@@ -576,6 +619,8 @@ class LibraryManagementFrame(ttk.Frame):
 
         self.song_title_entry.delete(0, tk.END)
         self.artist_entry.delete(0, tk.END)
+        self.release_year_entry.delete(0, tk.END)
+        self.spotify_id_entry.delete(0, tk.END)
         self._update_preview_area("")
         self.add_to_library_button.config(state="disabled")
 
@@ -620,6 +665,8 @@ class LibraryManagementFrame(ttk.Frame):
         self.local_filename_entry.delete(0, tk.END)
         self.song_title_entry.delete(0, tk.END)
         self.artist_entry.delete(0, tk.END)
+        self.release_year_entry.delete(0, tk.END)
+        self.spotify_id_entry.delete(0, tk.END)
         self._update_preview_area("")
         self.add_to_library_button.config(state="disabled")
 
