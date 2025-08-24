@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import os
 import unicodedata
+import threading
+import logging
 from src.services import spotify_service
 from src.services.file_discovery import find_new_songs
 from src.services.spotify_service import SpotifyAPIError
@@ -28,6 +30,7 @@ class LibraryManagementFrame(ttk.Frame):
         super().__init__(parent, style="TFrame")
         self.controller = controller
         self.preview_data = {}
+        self.album_art_blob = None
         self.import_session_files = []
         self.current_import_index = -1
         self.songs_added_in_session = 0
@@ -408,6 +411,9 @@ class LibraryManagementFrame(ttk.Frame):
         artist = self.artist_entry.get().strip()
         filename = self.local_filename_entry.get().strip()
 
+        # Reset album art blob for the new search
+        self.album_art_blob = None
+
         if not filename:
             messagebox.showwarning("Missing Information", "Local Filename is required.")
             return
@@ -446,16 +452,12 @@ class LibraryManagementFrame(ttk.Frame):
                 self.preview_data['local_filename'] = filename
 
                 # --- Auto-populate UI fields ---
-                # Clear existing content
                 self.song_title_entry.delete(0, tk.END)
                 self.artist_entry.delete(0, tk.END)
                 self.release_year_entry.delete(0, tk.END)
-
-                # Insert new content
                 self.song_title_entry.insert(0, match['title'])
                 self.artist_entry.insert(0, match['artist'])
                 self.release_year_entry.insert(0, match['release_year'])
-                # /-- End auto-population --/
 
                 display_text = (
                     f"Title: {match['title']}\n"
@@ -465,6 +467,16 @@ class LibraryManagementFrame(ttk.Frame):
                 )
                 self._update_preview_area(display_text)
                 self.add_to_library_button.config(state="normal")
+
+                # --- Fetch Album Art in Background ---
+                if match.get('spotify_id'):
+                    thread = threading.Thread(
+                        target=self._fetch_album_art_worker,
+                        args=(match['spotify_id'],),
+                        daemon=True
+                    )
+                    thread.start()
+
             else:
                 search_term = f"ID: {spotify_id}" if spotify_id else f"title: {title}"
                 self._update_preview_area(f"No match found on Spotify for {search_term}.", is_error=True)
@@ -473,6 +485,22 @@ class LibraryManagementFrame(ttk.Frame):
         except SpotifyAPIError as e:
             self._update_preview_area(f"API Error: {e}", is_error=True)
             self.add_to_library_button.config(state="disabled")
+
+    def _fetch_album_art_worker(self, spotify_id):
+        """
+        Worker function to fetch album art in a background thread.
+        """
+        logging.info(f"Starting album art fetch for Spotify ID: {spotify_id}")
+        try:
+            image_data = spotify_service.fetch_album_art_data(spotify_id)
+            self.album_art_blob = image_data
+            if image_data:
+                logging.info(f"Successfully fetched album art for {spotify_id}.")
+            else:
+                logging.warning(f"No album art found for {spotify_id}.")
+        except Exception as e:
+            logging.error(f"Error fetching album art for {spotify_id}: {e}")
+            self.album_art_blob = None
 
 
     def _add_to_library(self):
@@ -495,7 +523,8 @@ class LibraryManagementFrame(ttk.Frame):
                 artist=self.artist_entry.get(),
                 release_year=self.release_year_entry.get(),
                 spotify_id=self.preview_data['spotify_id'],
-                local_filename=self.preview_data['local_filename']
+                local_filename=self.preview_data['local_filename'],
+                album_art_blob=self.album_art_blob
             )
             # If the above line doesn't raise an exception, the song was added.
             song_added_successfully = True
@@ -532,6 +561,7 @@ class LibraryManagementFrame(ttk.Frame):
             self.release_year_entry.delete(0, tk.END)
             self.spotify_id_entry.delete(0, tk.END)
             self.preview_data = {}
+            self.album_art_blob = None
 
     def _start_import_session(self):
         """
