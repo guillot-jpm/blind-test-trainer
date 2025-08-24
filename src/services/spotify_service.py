@@ -198,10 +198,19 @@ def _format_track(track):
     if track['artists']:
         primary_artist = track['artists'][0]['name']
 
+    album_art_url = None
+    if track.get('album') and track['album'].get('images'):
+        images = track['album']['images']
+        if len(images) > 1:
+            album_art_url = images[1]['url']  # Typically 300x300
+        elif len(images) > 0:
+            album_art_url = images[0]['url']  # Fallback to largest
+
     return {
         'spotify_id': track['id'],
         'title': track['name'],
         'artist': artist_name,
         'primary_artist': primary_artist,
         'release_year': release_year,
+        'album_art_url': album_art_url,
     }

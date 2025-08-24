@@ -23,7 +23,13 @@ class TestSpotifyService(unittest.TestCase):
                     'id': 'track-id-1',
                     'name': 'Despacito',
                     'artists': [{'name': 'Luis Fonsi'}, {'name': 'Daddy Yankee'}],
-                    'album': {'release_date': '2017-01-13'},
+                    'album': {
+                        'release_date': '2017-01-13',
+                        'images': [
+                            {'url': 'http://example.com/large.jpg', 'height': 640, 'width': 640},
+                            {'url': 'http://example.com/medium.jpg', 'height': 300, 'width': 300},
+                        ]
+                    },
                     'popularity': 80,
                     'explicit': False
                 }
@@ -79,6 +85,7 @@ class TestSpotifyService(unittest.TestCase):
         result = spotify_service.search_by_title_and_artist("Despacito", "Luis Fonsi")
         self.assertIsNotNone(result)
         self.assertEqual(result['spotify_id'], 'track-id-1')
+        self.assertEqual(result['album_art_url'], 'http://example.com/medium.jpg')
         mock_spotify_client.search.assert_called_once()
 
     @patch('src.services.spotify_service.spotify')
@@ -92,7 +99,24 @@ class TestSpotifyService(unittest.TestCase):
         result = spotify_service.get_track_by_id('track-id-1')
         self.assertIsNotNone(result)
         self.assertEqual(result['title'], 'Despacito')
+        self.assertEqual(result['album_art_url'], 'http://example.com/medium.jpg')
         mock_spotify_client.track.assert_called_with('track-id-1')
+
+    @patch('src.services.spotify_service.spotify')
+    def test_format_track_no_album_art(self, mock_spotify_client):
+        """Tests that album_art_url is None when a track has no images."""
+        spotify_service.spotify = mock_spotify_client
+        mock_track_no_art = {
+            'id': 'track-id-no-art',
+            'name': 'No Art Song',
+            'artists': [{'name': 'Artist C'}],
+            'album': {'release_date': '2022', 'images': []},
+        }
+        mock_spotify_client.track.return_value = mock_track_no_art
+
+        result = spotify_service.get_track_by_id('track-id-no-art')
+        self.assertIsNotNone(result)
+        self.assertIsNone(result['album_art_url'])
 
     def test_search_service_not_initialized(self):
         """Tests that an error is raised if the service is not initialized."""
