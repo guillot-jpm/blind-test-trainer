@@ -355,7 +355,7 @@ class LibraryManagementFrame(ttk.Frame):
 
         if new_data:
             try:
-                # Update the database with the new details from the dialog
+                # Update the text-based details first
                 update_song_details(
                     song_id=song_id,
                     title=new_data['title'],
@@ -364,11 +364,19 @@ class LibraryManagementFrame(ttk.Frame):
                     spotify_id=new_data['spotify_id']
                 )
 
-                # If Spotify ID changed, fetch new album art in the background
-                if new_data['spotify_id'] and new_data['spotify_id'] != original_spotify_id:
+                # --- Album Art Update Logic ---
+                new_art_blob = new_data.get('new_album_art_blob')
+                new_spotify_id = new_data.get('spotify_id')
+
+                # Case 1: Dialog fetched new art. Use it directly.
+                if new_art_blob:
+                    update_album_art(song_id, new_art_blob)
+                # Case 2: No new art from dialog, but Spotify ID changed.
+                # Fetch art in the background as a fallback.
+                elif new_spotify_id and new_spotify_id != original_spotify_id:
                     thread = threading.Thread(
                         target=self._update_album_art_worker,
-                        args=(song_id, new_data['spotify_id']),
+                        args=(song_id, new_spotify_id),
                         daemon=True
                     )
                     thread.start()
