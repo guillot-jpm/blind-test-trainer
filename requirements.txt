@@ -6,3 +6,4 @@ pydub
 pygame
 matplotlib
 requests
+Pillow

@@ -4,6 +4,8 @@ from tkinter import ttk, messagebox
 import random
 import threading
 import time
+import io
+from PIL import Image, ImageTk
 
 import tempfile
 import os
@@ -13,7 +15,7 @@ import pygame
 
 from src.services.quiz_session import QuizSession
 from src.data import song_library, database_manager
-from src.services import srs_service
+from src.services import srs_service, spotify_service
 from src.utils.config_manager import config
 
 
@@ -107,10 +109,16 @@ class QuizView(ttk.Frame):
             style="Answer.TLabel",
             anchor="center"
         )
-        self.answer_label.grid(row=0, column=0, sticky="ew", pady=(20,10))
+        self.answer_label.grid(row=1, column=0, sticky="ew", pady=(10,10))
 
         buttons_frame = ttk.Frame(self.answer_reveal_frame, style="TFrame")
-        buttons_frame.grid(row=1, column=0, pady=10)
+        buttons_frame.grid(row=2, column=0, pady=10)
+
+        # --- Album Art ---
+        self.album_art_label = ttk.Label(self.answer_reveal_frame, anchor="center")
+        self.album_art_label.grid(row=0, column=0, pady=(10, 0))
+        self.album_art_image = None  # To hold a reference
+        self.load_placeholder_image()
 
         self.correct_button = ttk.Button(
             buttons_frame,
@@ -127,6 +135,27 @@ class QuizView(ttk.Frame):
             style="TButton"
         )
         self.incorrect_button.pack(side="right", padx=10)
+
+    def load_placeholder_image(self):
+        """Loads and displays the placeholder album art."""
+        try:
+            # Correctly load the placeholder from the assets directory
+            # and resize it for display.
+            placeholder_path = "src/assets/placeholder.png"
+            if os.path.exists(placeholder_path):
+                image = Image.open(placeholder_path)
+                image = image.resize((300, 300), Image.Resampling.LANCZOS)
+                self.album_art_image = ImageTk.PhotoImage(image)
+                self.album_art_label.config(image=self.album_art_image)
+            else:
+                # Fallback if the placeholder image is missing
+                fallback_img = Image.new('RGBA', (300, 300), (200, 200, 200, 255))
+                self.album_art_image = ImageTk.PhotoImage(fallback_img)
+                self.album_art_label.config(image=self.album_art_image)
+                logging.warning("placeholder.png not found. Using a grey box.")
+        except Exception as e:
+            logging.error(f"Could not load placeholder image: {e}")
+            self.album_art_label.config(image=None)  # Clear image on error
 
 
     def quit_session(self):
@@ -341,7 +370,7 @@ class QuizView(ttk.Frame):
 
     def show_answer_reveal_state(self):
         """
-        Transitions the UI to show the song answer.
+        Transitions the UI to show the song answer and fetches album art.
         """
         self.prompt_label.grid_forget()
 
@@ -353,6 +382,37 @@ class QuizView(ttk.Frame):
         song_info = f"{self.current_song['title']} - {self.current_song['artist']}"
         self.answer_label.config(text=song_info)
         self.answer_reveal_frame.grid(row=0, column=0, sticky="nsew")
+
+        # Load placeholder first, then fetch real art
+        self.load_placeholder_image()
+        threading.Thread(target=self.fetch_and_update_album_art, daemon=True).start()
+
+    def fetch_and_update_album_art(self):
+        """
+        Fetches album art in a background thread and schedules the UI update.
+        """
+        spotify_id = self.current_song.get("spotify_id")
+        if not spotify_id:
+            return  # No ID, no art.
+
+        image_data = spotify_service.fetch_album_art_data(spotify_id)
+        if image_data:
+            self.after(0, self.update_album_art, image_data)
+
+    def update_album_art(self, image_data):
+        """
+        Updates the album art label with the fetched image.
+        This must be called from the main thread.
+        """
+        try:
+            image = Image.open(io.BytesIO(image_data))
+            image = image.resize((300, 300), Image.Resampling.LANCZOS)
+            self.album_art_image = ImageTk.PhotoImage(image)
+            self.album_art_label.config(image=self.album_art_image)
+        except Exception as e:
+            logging.error(f"Failed to process and display album art: {e}")
+            # If processing fails, fallback to the placeholder
+            self.load_placeholder_image()
 
     def show_quiz_results(self):
         """
