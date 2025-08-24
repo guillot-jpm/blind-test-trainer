@@ -10,6 +10,7 @@ from spotipy.oauth2 import SpotifyClientCredentials
 from thefuzz import fuzz
 from configparser import NoSectionError, NoOptionError
 import logging
+import requests
 from src.utils.config_manager import config
 
 
@@ -131,6 +132,54 @@ def get_track_by_id(track_id):
         )
         # This can happen if the ID is invalid or not found
         raise SpotifyAPIError(f"Failed to get track by ID '{track_id}': {e}") from e
+
+
+def fetch_album_art_data(spotify_id):
+    """
+    Given a Spotify track ID, fetches the album art.
+
+    This function prioritizes a 300x300 resolution image if available.
+    It downloads the image and returns its binary content.
+
+    Args:
+        spotify_id (str): The Spotify ID of the track.
+
+    Returns:
+        bytes: The binary content of the image, or None if an error occurs.
+    """
+    if not spotify:
+        raise SpotifyAPIError("Spotify service is not initialized.")
+
+    try:
+        track = spotify.track(spotify_id)
+        if not track or not track.get('album') or not track['album'].get('images'):
+            logging.warning(f"No album art found for Spotify track ID: {spotify_id}")
+            return None
+
+        # Prioritize 300x300 image (index 1), fallback to others
+        images = track['album']['images']
+        image_url = None
+        if len(images) > 1:
+            image_url = images[1]['url']  # 300x300
+        elif len(images) > 0:
+            image_url = images[0]['url']  # 640x640
+        else:
+            logging.warning(f"No image URLs in album data for track ID: {spotify_id}")
+            return None
+
+        response = requests.get(image_url, timeout=10)
+        response.raise_for_status()  # Raises an HTTPError for bad responses
+        return response.content
+
+    except spotipy.exceptions.SpotifyException as e:
+        logging.error(f"Spotify API error fetching track '{spotify_id}': {e}")
+        return None
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Failed to download album art for track ID '{spotify_id}': {e}")
+        return None
+    except (KeyError, IndexError) as e:
+        logging.error(f"Unexpected data structure for track ID '{spotify_id}': {e}")
+        return None
 
 
 # --- Private Helper Functions ---
