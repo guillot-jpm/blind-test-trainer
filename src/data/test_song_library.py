@@ -136,3 +136,23 @@ def test_update_and_get_album_art(db_connection):
 
     # 4. Test getting art for a non-existent song
     assert song_library.get_album_art(999) is None
+
+
+def test_add_song_with_album_art(db_connection):
+    """Test that album art is correctly saved when adding a new song."""
+    # Some dummy binary data for the album art
+    fake_image_data = b'\x10\x20\x30\x40\x50'
+
+    song_id = song_library.add_song(
+        title="Art Song",
+        artist="Art Artist",
+        release_year=2023,
+        local_filename="artsong.mp3",
+        album_art_blob=fake_image_data
+    )
+
+    # Retrieve the album art using the specific getter function
+    retrieved_art = song_library.get_album_art(song_id)
+
+    assert retrieved_art is not None
+    assert retrieved_art == fake_image_data

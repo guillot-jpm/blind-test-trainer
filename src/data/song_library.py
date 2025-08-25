@@ -36,7 +36,7 @@ def _create_srs_record(song_id, cursor):
     """, (song_id, date.today()))
 
 
-def add_song(title, artist, release_year, local_filename, spotify_id=None):
+def add_song(title, artist, release_year, local_filename, spotify_id=None, album_art_blob=None):
     """
     Adds a new song to the database and initializes its spaced repetition data.
 
@@ -46,6 +46,7 @@ def add_song(title, artist, release_year, local_filename, spotify_id=None):
         release_year (int): The release year of the song.
         local_filename (str): The local filename of the song file.
         spotify_id (str, optional): The Spotify Track ID. Defaults to None.
+        album_art_blob (bytes, optional): The binary album art data. Defaults to None.
 
     Returns:
         int: The song_id of the newly added song.
@@ -56,9 +57,9 @@ def add_song(title, artist, release_year, local_filename, spotify_id=None):
     try:
         cursor = get_cursor()
         cursor.execute("""
-            INSERT INTO songs (title, artist, release_year, local_filename, spotify_id)
-            VALUES (?, ?, ?, ?, ?)
-        """, (title, artist, release_year, local_filename, spotify_id))
+            INSERT INTO songs (title, artist, release_year, local_filename, spotify_id, album_art_blob)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (title, artist, release_year, local_filename, spotify_id, album_art_blob))
 
         song_id = cursor.lastrowid
 

@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 import os
 import unicodedata
+import threading
+import logging
 from src.services import spotify_service
 from src.services.file_discovery import find_new_songs
 from src.services.spotify_service import SpotifyAPIError
@@ -12,7 +14,10 @@ from src.data.song_library import (
     get_all_songs_for_view,
     delete_songs_by_id,
     update_song_details,
+    get_song_by_id,
+    update_album_art,
 )
+from src.gui.edit_song_dialog import EditSongDialog
 
 
 class LibraryManagementFrame(ttk.Frame):
@@ -28,6 +33,7 @@ class LibraryManagementFrame(ttk.Frame):
         super().__init__(parent, style="TFrame")
         self.controller = controller
         self.preview_data = {}
+        self.album_art_blob = None
         self.import_session_files = []
         self.current_import_index = -1
         self.songs_added_in_session = 0
@@ -320,61 +326,82 @@ class LibraryManagementFrame(ttk.Frame):
 
     def _edit_selected_song(self):
         """
-        Opens a dialog to edit the selected song by providing a new Spotify ID.
-        Fetches new metadata from Spotify and updates the local database.
+        Opens a dedicated dialog to edit the details of the selected song.
         """
         selected_items = self.tree.selection()
         if not selected_items:
             return
 
-        song_id_str = selected_items[0]
-        song_id = int(song_id_str)
+        song_id = int(selected_items[0])
+        song_record_tuple = get_song_by_id(song_id)
 
-        # Find the current Spotify ID to pre-fill the dialog
-        selected_song = next((s for s in self.all_songs if s['song_id'] == song_id), None)
-        current_spotify_id = selected_song.get('spotify_id', '') if selected_song else ''
-
-        new_spotify_id = simpledialog.askstring(
-            "Edit Song via Spotify ID",
-            "Enter the correct Spotify Track ID:",
-            initialvalue=current_spotify_id,
-            parent=self
-        )
-
-        if not new_spotify_id or not new_spotify_id.strip():
+        if not song_record_tuple:
+            messagebox.showerror("Error", f"Could not retrieve details for song ID: {song_id}")
             return
 
+        # Map the raw tuple from the database to a dictionary.
+        song_data = {
+            'song_id': song_record_tuple[0],
+            'title': song_record_tuple[1],
+            'artist': song_record_tuple[2],
+            'release_year': song_record_tuple[3],
+            'spotify_id': song_record_tuple[7] or ''
+        }
+        original_spotify_id = song_data['spotify_id']
+
+        # Open the modal dialog to edit the song
+        dialog = EditSongDialog(self, song_data)
+        new_data = dialog.result # This will block until the dialog is closed
+
+        if new_data:
+            try:
+                # Update the text-based details first
+                update_song_details(
+                    song_id=song_id,
+                    title=new_data['title'],
+                    artist=new_data['artist'],
+                    release_year=new_data['release_year'],
+                    spotify_id=new_data['spotify_id']
+                )
+
+                # --- Album Art Update Logic ---
+                new_art_blob = new_data.get('new_album_art_blob')
+                new_spotify_id = new_data.get('spotify_id')
+
+                # Case 1: Dialog fetched new art. Use it directly.
+                if new_art_blob:
+                    update_album_art(song_id, new_art_blob)
+                # Case 2: No new art from dialog, but Spotify ID changed.
+                # Fetch art in the background as a fallback.
+                elif new_spotify_id and new_spotify_id != original_spotify_id:
+                    thread = threading.Thread(
+                        target=self._update_album_art_worker,
+                        args=(song_id, new_spotify_id),
+                        daemon=True
+                    )
+                    thread.start()
+
+                self._populate_treeview()  # Refresh the library view
+                messagebox.showinfo("Success", "Song details updated successfully.")
+
+            except Exception as e:
+                messagebox.showerror("Update Error", f"An unexpected error occurred: {e}")
+
+    def _update_album_art_worker(self, song_id, spotify_id):
+        """
+        Worker function to fetch and update album art for an existing song.
+        """
+        logging.info(f"Starting album art update for song ID {song_id} with Spotify ID: {spotify_id}")
         try:
-            # Fetch new track details from Spotify
-            self._update_preview_area("Fetching new song data from Spotify...")
-            self.update_idletasks()
+            image_data = spotify_service.fetch_album_art_data(spotify_id)
+            update_album_art(song_id, image_data)
 
-            new_track_info = spotify_service.get_track_by_id(new_spotify_id.strip())
-
-            if not new_track_info:
-                messagebox.showerror("Not Found", f"Could not find a track with ID: {new_spotify_id}")
-                self._update_preview_area("") # Clear preview area
-                return
-
-            # Update the database with the new details
-            update_song_details(
-                song_id=song_id,
-                title=new_track_info['title'],
-                artist=new_track_info['artist'],
-                release_year=new_track_info['release_year'],
-                spotify_id=new_track_info['spotify_id']
-            )
-
-            self._populate_treeview() # Refresh the view
-            self._update_preview_area("") # Clear preview area
-            messagebox.showinfo("Success", "Song details updated successfully.")
-
-        except SpotifyAPIError as e:
-            messagebox.showerror("API Error", f"Could not fetch data from Spotify: {e}")
-            self._update_preview_area("")
+            if image_data:
+                logging.info(f"Successfully updated album art for song {song_id}.")
+            else:
+                logging.warning(f"No new album art found for {spotify_id}. Old art cleared.")
         except Exception as e:
-            messagebox.showerror("Update Error", f"An unexpected error occurred: {e}")
-            self._update_preview_area("")
+            logging.error(f"Error updating album art for song {song_id}: {e}")
 
     def _delete_selected_songs(self):
         """
@@ -407,6 +434,9 @@ class LibraryManagementFrame(ttk.Frame):
         title = self.song_title_entry.get().strip()
         artist = self.artist_entry.get().strip()
         filename = self.local_filename_entry.get().strip()
+
+        # Reset album art blob for the new search
+        self.album_art_blob = None
 
         if not filename:
             messagebox.showwarning("Missing Information", "Local Filename is required.")
@@ -446,16 +476,12 @@ class LibraryManagementFrame(ttk.Frame):
                 self.preview_data['local_filename'] = filename
 
                 # --- Auto-populate UI fields ---
-                # Clear existing content
                 self.song_title_entry.delete(0, tk.END)
                 self.artist_entry.delete(0, tk.END)
                 self.release_year_entry.delete(0, tk.END)
-
-                # Insert new content
                 self.song_title_entry.insert(0, match['title'])
                 self.artist_entry.insert(0, match['artist'])
                 self.release_year_entry.insert(0, match['release_year'])
-                # /-- End auto-population --/
 
                 display_text = (
                     f"Title: {match['title']}\n"
@@ -465,6 +491,16 @@ class LibraryManagementFrame(ttk.Frame):
                 )
                 self._update_preview_area(display_text)
                 self.add_to_library_button.config(state="normal")
+
+                # --- Fetch Album Art in Background ---
+                if match.get('spotify_id'):
+                    thread = threading.Thread(
+                        target=self._fetch_album_art_worker,
+                        args=(match['spotify_id'],),
+                        daemon=True
+                    )
+                    thread.start()
+
             else:
                 search_term = f"ID: {spotify_id}" if spotify_id else f"title: {title}"
                 self._update_preview_area(f"No match found on Spotify for {search_term}.", is_error=True)
@@ -473,6 +509,22 @@ class LibraryManagementFrame(ttk.Frame):
         except SpotifyAPIError as e:
             self._update_preview_area(f"API Error: {e}", is_error=True)
             self.add_to_library_button.config(state="disabled")
+
+    def _fetch_album_art_worker(self, spotify_id):
+        """
+        Worker function to fetch album art in a background thread.
+        """
+        logging.info(f"Starting album art fetch for Spotify ID: {spotify_id}")
+        try:
+            image_data = spotify_service.fetch_album_art_data(spotify_id)
+            self.album_art_blob = image_data
+            if image_data:
+                logging.info(f"Successfully fetched album art for {spotify_id}.")
+            else:
+                logging.warning(f"No album art found for {spotify_id}.")
+        except Exception as e:
+            logging.error(f"Error fetching album art for {spotify_id}: {e}")
+            self.album_art_blob = None
 
 
     def _add_to_library(self):
@@ -495,7 +547,8 @@ class LibraryManagementFrame(ttk.Frame):
                 artist=self.artist_entry.get(),
                 release_year=self.release_year_entry.get(),
                 spotify_id=self.preview_data['spotify_id'],
-                local_filename=self.preview_data['local_filename']
+                local_filename=self.preview_data['local_filename'],
+                album_art_blob=self.album_art_blob
             )
             # If the above line doesn't raise an exception, the song was added.
             song_added_successfully = True
@@ -532,6 +585,7 @@ class LibraryManagementFrame(ttk.Frame):
             self.release_year_entry.delete(0, tk.END)
             self.spotify_id_entry.delete(0, tk.END)
             self.preview_data = {}
+            self.album_art_blob = None
 
     def _start_import_session(self):
         """
