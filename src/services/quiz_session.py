@@ -24,6 +24,7 @@ class QuizSession:
         self.current_question_index = 0
         self.score = 0
         self.mode = mode
+        self.failed_songs = []
 
     def get_current_song(self):
         """
@@ -65,12 +66,16 @@ class QuizSession:
         """
         return self.current_question_index >= self.total_questions
 
-    def record_result(self, was_correct: bool):
+    def record_result(self, was_correct: bool, song_data: dict = None):
         """
         Records the result of a question and updates the score.
 
         Args:
             was_correct (bool): True if the user answered correctly.
+            song_data (dict, optional): The full data of the song answered.
+                                        Required for Gauntlet mode.
         """
         if was_correct:
             self.score += 1
+        elif self.mode == "Gauntlet" and song_data:
+            self.failed_songs.append(song_data)
