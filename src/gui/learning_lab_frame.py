@@ -3,7 +3,7 @@ from tkinter import ttk
 import pygame
 import os
 import logging
-from src.data import song_library
+from src.data import song_library, database_manager
 from src.utils.config_manager import config
 
 class LearningLabView(ttk.Frame):
@@ -89,20 +89,24 @@ class LearningLabView(ttk.Frame):
 
     def load_playlist(self):
         """
-        Loads the playlist with songs that are due for review.
+        Loads the playlist with problem songs.
         """
         logging.info("Loading playlist for Learning Lab.")
         self.playlist.clear()
         try:
-            due_song_ids = song_library.get_due_songs()
-            if not due_song_ids:
-                logging.warning("No songs are currently due for review.")
-                self.song_title_label.config(text="No songs due for review")
+            # As per user feedback, use get_problem_songs(limit=10)
+            problem_songs = database_manager.get_problem_songs(limit=10)
+            if not problem_songs:
+                logging.warning("No problem songs found to create a playlist.")
+                self.song_title_label.config(text="No problem songs found")
                 self.artist_name_label.config(text="")
                 return
 
-            for song_id in due_song_ids:
+            for problem_song in problem_songs:
+                song_id = problem_song['song_id']
+                # We need the full song record to get the local_filename
                 song_data = song_library.get_song_by_id(song_id)
+
                 # Defensively check that the song data exists and has a filename
                 if song_data and song_data[4]:
                     song_record = {
@@ -119,7 +123,10 @@ class LearningLabView(ttk.Frame):
             if self.playlist:
                 logging.info(f"Loaded {len(self.playlist)} songs into the playlist.")
             else:
-                 logging.warning("Playlist loaded, but it is empty.")
+                 logging.warning("Playlist is empty after filtering problem songs for valid file paths.")
+                 self.song_title_label.config(text="No playable problem songs found")
+                 self.artist_name_label.config(text="Ensure songs have file paths.")
+
 
         except Exception as e:
             logging.error(f"Failed to load playlist: {e}")
