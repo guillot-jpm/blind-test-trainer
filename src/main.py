@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 import logging
+import pygame
 from src.gui.main_window import MainWindow
 from src.utils.config_manager import load_config
 from src.services.spotify_service import initialize_spotify_service
@@ -34,6 +35,10 @@ if __name__ == "__main__":
 
     # 2. Initialize external services
     initialize_spotify_service()
+
+    # Initialize Pygame Mixer
+    pygame.mixer.init()
+    logging.info("Pygame mixer initialized.")
 
     # 3. Create and run the main application window
     app = MainWindow(new_config_created=new_config_created)

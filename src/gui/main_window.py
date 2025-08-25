@@ -126,20 +126,28 @@ class MainWindow(tk.Tk):
             self.frames[page_name] = frame
             frame.grid(row=0, column=0, sticky="nsew")
 
+        self.current_frame_name = None
         self.show_frame("MainMenuFrame")
 
     def show_frame(self, page_name):
         """
         Raises the specified frame to the top of the stacking order.
-        If the target frame is the MainMenuFrame, its statistics are refreshed.
+        Handles on_hide and on_show events for relevant frames.
         """
-        frame = self.frames[page_name]
+        if self.current_frame_name:
+            old_frame = self.frames[self.current_frame_name]
+            if hasattr(old_frame, 'on_hide'):
+                old_frame.on_hide()
 
-        # Special handling for frames that need refreshing
-        if page_name == "LibraryManagementFrame":
+        frame = self.frames[page_name]
+        self.current_frame_name = page_name
+
+        # Special handling for frames that need refreshing or setup
+        if hasattr(frame, 'on_show'):
             frame.on_show()
-        elif page_name == "DashboardFrame":
+        elif page_name == "DashboardFrame": # Keep specific calls if they do more
             frame.refresh_charts()
+
 
         frame.tkraise()
 
