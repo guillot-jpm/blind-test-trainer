@@ -49,6 +49,14 @@ class MainMenuFrame(ttk.Frame):
         )
         start_challenge_button.grid(row=1, column=0, sticky="ew", pady=5)
 
+        learning_lab_button = ttk.Button(
+            buttons_frame,
+            text="Enter Learning Lab",
+            command=lambda: self.controller.show_frame("LearningLabView"),
+            style="TButton"
+        )
+        learning_lab_button.grid(row=2, column=0, sticky="ew", pady=5)
+
         # --- Dashboard Button ---
         view_dashboard_button = ttk.Button(
             buttons_frame,
@@ -56,7 +64,7 @@ class MainMenuFrame(ttk.Frame):
             command=lambda: self.controller.show_frame("DashboardFrame"),
             style="TButton"
         )
-        view_dashboard_button.grid(row=2, column=0, sticky="ew", pady=5)
+        view_dashboard_button.grid(row=3, column=0, sticky="ew", pady=5)
 
         # --- Library Management Button ---
         manage_library_button = ttk.Button(
@@ -65,7 +73,7 @@ class MainMenuFrame(ttk.Frame):
             command=self.manage_library,
             style="TButton"
         )
-        manage_library_button.grid(row=3, column=0, sticky="ew", pady=(15, 5))
+        manage_library_button.grid(row=4, column=0, sticky="ew", pady=(15, 5))
 
     def start_standard_session(self):
         """
