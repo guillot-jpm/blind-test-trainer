@@ -254,28 +254,34 @@ class QuizView(ttk.Frame):
         """
         song_id = self.current_song['song_id']
 
-        try:
-            database_manager.record_play_history(
-                song_id=song_id,
-                was_correct=was_correct,
-                reaction_time=self.reaction_time
-            )
-        except Exception as e:
-            logging.error(f"Error recording play history: {e}")
-            messagebox.showerror("Database Error", "Failed to save your progress. Please check the logs.")
+        # For Gauntlet mode, we only record the session score and failed songs,
+        # without affecting the persistent play history or SRS data.
+        if self.session.mode == "Gauntlet":
+            self.session.record_result(was_correct, self.current_song)
+        else:
+            # Original logic for Standard and Challenge modes
+            try:
+                database_manager.record_play_history(
+                    song_id=song_id,
+                    was_correct=was_correct,
+                    reaction_time=self.reaction_time
+                )
+            except Exception as e:
+                logging.error(f"Error recording play history: {e}")
+                messagebox.showerror("Database Error", "Failed to save your progress. Please check the logs.")
 
-        self.session.record_result(was_correct)
+            self.session.record_result(was_correct)
 
-        try:
-            srs_service.update_srs_data_for_song(
-                song_id=song_id,
-                was_correct=was_correct,
-                reaction_time=self.reaction_time
-            )
-        except Exception as e:
-            logging.error(f"Error updating SRS data: {e}")
-            messagebox.showerror("SRS Error", "Failed to update learning data. Please check the logs.")
-            return
+            try:
+                srs_service.update_srs_data_for_song(
+                    song_id=song_id,
+                    was_correct=was_correct,
+                    reaction_time=self.reaction_time
+                )
+            except Exception as e:
+                logging.error(f"Error updating SRS data: {e}")
+                messagebox.showerror("SRS Error", "Failed to update learning data. Please check the logs.")
+                return
 
         self.proceed_to_next_song()
 
@@ -446,9 +452,20 @@ class QuizView(ttk.Frame):
         """
         Displays the results at the end of the quiz.
         """
-        if self.session.mode == "Challenge":
-            score = self.session.score
-            total = self.session.total_questions
+        score = self.session.score
+        total = self.session.total_questions
+
+        if self.session.mode == "Gauntlet":
+            message = f"Gauntlet Complete! You scored {score}/{total}.\n\n"
+            if self.session.failed_songs:
+                message += "Songs you missed:\n"
+                for song in self.session.failed_songs:
+                    message += f"- {song['title']} by {song['artist']}\n"
+            else:
+                message += "You got everything right. Incredible!"
+            messagebox.showinfo("Gauntlet Results", message)
+
+        elif self.session.mode == "Challenge":
             message = f"Session Complete! You scored {score}/{total}."
             messagebox.showinfo("Challenge Mode Complete", message)
         else:
