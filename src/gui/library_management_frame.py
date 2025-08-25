@@ -333,20 +333,15 @@ class LibraryManagementFrame(ttk.Frame):
             return
 
         song_id = int(selected_items[0])
-        song_record_tuple = get_song_by_id(song_id)
+        # get_song_by_id now returns a dictionary.
+        song_data = get_song_by_id(song_id)
 
-        if not song_record_tuple:
+        if not song_data:
             messagebox.showerror("Error", f"Could not retrieve details for song ID: {song_id}")
             return
 
-        # Map the raw tuple from the database to a dictionary.
-        song_data = {
-            'song_id': song_record_tuple[0],
-            'title': song_record_tuple[1],
-            'artist': song_record_tuple[2],
-            'release_year': song_record_tuple[3],
-            'spotify_id': song_record_tuple[7] or ''
-        }
+        # The 'spotify_id' might be None, so ensure it's a string for the dialog.
+        song_data['spotify_id'] = song_data.get('spotify_id') or ''
         original_spotify_id = song_data['spotify_id']
 
         # Open the modal dialog to edit the song

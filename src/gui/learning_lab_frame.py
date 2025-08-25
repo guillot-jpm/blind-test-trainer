@@ -91,13 +91,11 @@ class LearningLabView(ttk.Frame):
         """
         Loads the playlist with problem songs.
         """
-        print("--- DEBUG: load_playlist called ---")
         logging.info("Loading playlist for Learning Lab.")
         self.playlist.clear()
         try:
             # As per user feedback, use get_problem_songs(limit=10)
             problem_songs = database_manager.get_problem_songs(limit=10)
-            print(f"--- DEBUG: Received from get_problem_songs: {problem_songs} ---")
             if not problem_songs:
                 logging.warning("No problem songs found to create a playlist.")
                 self.song_title_label.config(text="No problem songs found")
@@ -106,27 +104,13 @@ class LearningLabView(ttk.Frame):
 
             for problem_song in problem_songs:
                 song_id = problem_song['song_id']
-                print(f"--- DEBUG: Processing song_id: {song_id} ---")
-                # We need the full song record to get the local_filename
-                song_data = song_library.get_song_by_id(song_id)
-                print(f"--- DEBUG: Got song_data: {song_data} ---")
+                # get_song_by_id now returns a dictionary, which is more robust.
+                song_record = song_library.get_song_by_id(song_id)
 
-                # Defensively check that the song data exists and has a filename
-                if song_data and song_data[4]:
-                    song_record = {
-                        "song_id": song_data[0],
-                        "title": song_data[1],
-                        "artist": song_data[2],
-                        "release_year": song_data[3],
-                        "local_filename": song_data[4],
-                        "spotify_id": song_data[5],
-                        "album_art_blob": song_data[6]
-                    }
+                # Defensively check that the song record exists and has a local_filename.
+                if song_record and song_record.get('local_filename'):
                     self.playlist.append(song_record)
-                else:
-                    print(f"--- DEBUG: Filtering out song_id {song_id} due to missing data or filename. ---")
 
-            print(f"--- DEBUG: Final playlist: {self.playlist} ---")
             if self.playlist:
                 logging.info(f"Loaded {len(self.playlist)} songs into the playlist.")
             else:
@@ -136,7 +120,6 @@ class LearningLabView(ttk.Frame):
 
 
         except Exception as e:
-            print(f"--- DEBUG: load_playlist ERROR: {e} ---")
             logging.error(f"Failed to load playlist: {e}")
 
     def play_song(self, song_index):
