@@ -283,6 +283,7 @@ def get_problem_songs(limit=5):
               and 'attempts'. Returns an empty list on error or if
               there's no play history.
     """
+    print(f"--- DEBUG: get_problem_songs called with limit={limit} ---")
     problem_songs = []
     try:
         cursor = get_cursor()
@@ -302,13 +303,16 @@ def get_problem_songs(limit=5):
         """, (limit,))
 
         rows = cursor.fetchall()
+        print(f"--- DEBUG: SQL query returned {len(rows)} rows: {rows} ---")
         # Get column names from the cursor description for easy dict conversion
         column_names = [description[0] for description in cursor.description]
         for row in rows:
             problem_songs.append(dict(zip(column_names, row)))
 
+        print(f"--- DEBUG: get_problem_songs returning: {problem_songs} ---")
         return problem_songs
     except sqlite3.Error as e:
+        print(f"--- DEBUG: get_problem_songs ERROR: {e} ---")
         logging.error(f"Failed to get problem songs: {e}")
         return []
 
