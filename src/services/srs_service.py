@@ -4,6 +4,7 @@
 This service is responsible for handling the Spaced Repetition System (SRS) logic.
 """
 
+import logging
 from datetime import date, timedelta
 from src.data import song_library
 
@@ -94,8 +95,8 @@ def update_srs_data_for_song(song_id: int, was_correct: bool, reaction_time: flo
     srs_data = song_library.get_srs_data(song_id)
     if not srs_data:
         # This case should ideally not be reached for a song that's part of a quiz.
-        # If it does, we can't proceed with an update. Log or handle error as needed.
-        print(f"Warning: No SRS data found for song_id {song_id}. Cannot update.")
+        # If it does, we can't proceed with an update.
+        logging.warning(f"No SRS data found for song_id {song_id}. Cannot update.")
         return
 
     if was_correct:
