@@ -413,7 +413,7 @@ class QuizView(ttk.Frame):
         else:
             self.status_label.config(text="Time's Up!")
 
-        song_info = f"{self.current_song['title']} - {self.current_song['artist']}"
+        song_info = f"{self.current_song['artist']}\n{self.current_song['title']}"
         self.answer_label.config(text=song_info)
         self.answer_reveal_frame.grid(row=0, column=0, sticky="nsew")
 
