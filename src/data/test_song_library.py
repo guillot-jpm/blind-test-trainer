@@ -26,8 +26,8 @@ def test_add_and_get_song(db_connection):
 
     song = song_library.get_song_by_id(song_id)
     assert song is not None
-    assert song[1] == "Test Song"
-    assert song[6] == "test.mp3"
+    assert song['title'] == "Test Song"
+    assert song['local_filename'] == "test.mp3"
 
     # Verify that spaced repetition data was created
     cursor = database_manager.get_cursor()

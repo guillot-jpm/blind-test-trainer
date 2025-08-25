@@ -36,21 +36,9 @@ class QuizSession:
             return None
 
         song_id = self.song_ids[self.current_question_index]
+        # get_song_by_id now returns a dictionary directly.
         song_data = song_library.get_song_by_id(song_id)
-
-        # Convert tuple to a more usable dictionary
-        if song_data:
-            return {
-                "song_id": song_data[0],
-                "title": song_data[1],
-                "artist": song_data[2],
-                "release_year": song_data[3],
-                "language": song_data[4],
-                "genre": song_data[5],
-                "local_filename": song_data[6],
-                "spotify_id": song_data[7],
-            }
-        return None
+        return song_data
 
     def get_session_progress(self) -> (int, int):
         """

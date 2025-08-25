@@ -83,11 +83,18 @@ def get_song_by_id(song_id):
         song_id (int): The ID of the song to retrieve.
 
     Returns:
-        tuple: A tuple representing the song record, or None if not found.
+        dict: A dictionary representing the song record, or None if not found.
     """
     cursor = get_cursor()
     cursor.execute("SELECT * FROM songs WHERE song_id = ?", (song_id,))
-    return cursor.fetchone()
+    row = cursor.fetchone()
+
+    if not row:
+        return None
+
+    # Get column names from the cursor description to build a dictionary
+    column_names = [description[0] for description in cursor.description]
+    return dict(zip(column_names, row))
 
 def get_all_songs():
     """
@@ -333,8 +340,8 @@ def get_album_art_for_song(song_id):
         logging.warning(f"Cannot fetch album art: Song with ID {song_id} not found.")
         return None
 
-    # song_record is a tuple, spotify_id is at index 7
-    spotify_id = song_record[7]
+    # song_record is now a dictionary
+    spotify_id = song_record.get('spotify_id')
     if not spotify_id:
         logging.warning(f"Cannot fetch album art: No Spotify ID for song {song_id}.")
         return None

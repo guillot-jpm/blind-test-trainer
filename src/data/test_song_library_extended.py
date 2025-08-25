@@ -44,10 +44,10 @@ def test_update_song_details(db_connection_extended):
 
     updated_song = song_library.get_song_by_id(song_id)
     assert updated_song is not None
-    assert updated_song[1] == new_title
-    assert updated_song[2] == new_artist
-    assert updated_song[3] == new_year
-    assert updated_song[7] == new_spotify_id
+    assert updated_song['title'] == new_title
+    assert updated_song['artist'] == new_artist
+    assert updated_song['release_year'] == new_year
+    assert updated_song['spotify_id'] == new_spotify_id
 
 def test_delete_songs_by_id(db_connection_extended):
     """Test deleting songs by their IDs."""
