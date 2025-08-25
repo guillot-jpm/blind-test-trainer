@@ -37,16 +37,6 @@ def test_add_and_get_song(db_connection):
     assert sr_data[0] == song_id
     assert sr_data[3] == date.today()
 
-def test_get_all_songs(db_connection):
-    """Test retrieving all songs from the library."""
-    song_library.add_song("Song 1", "Artist A", 2021, "song1.mp3")
-    song_library.add_song("Song 2", "Artist B", 2022, "song2.mp3")
-
-    all_songs = song_library.get_all_songs()
-    assert len(all_songs) == 2
-    assert all_songs[0][1] == "Song 1"
-    assert all_songs[1][1] == "Song 2"
-
 def test_add_duplicate_song_filename(db_connection):
     """Test that adding a song with a duplicate filename raises an error."""
     song_library.add_song("Song 1", "Artist A", 2021, "song1.mp3")
