@@ -12,7 +12,7 @@ class LearningLabView(ttk.Frame):
         # --- Main container ---
         main_container = ttk.Frame(self)
         main_container.pack(expand=True, fill="both", padx=20, pady=10)
-        main_container.column_configure(0, weight=1)
+        main_container.columnconfigure(0, weight=1)
 
         # --- Title ---
         title_label = ttk.Label(main_container, text="Learning Lab", style="Title.TLabel")

@@ -107,6 +107,7 @@ class DashboardFrame(ttk.Frame):
         ax.set_title("Library Mastery Distribution", fontsize=14)
         ax.set_ylabel("Count of Songs")
         ax.set_ylim(0, max(counts) * 1.15 if any(counts) else 10) # Dynamic Y-axis
+        ax.set_xticks(range(len(labels)))  # Set tick locations
         ax.set_xticklabels(labels, rotation=0) # Ensure labels are horizontal
 
         # 5. Add count labels on top of bars
