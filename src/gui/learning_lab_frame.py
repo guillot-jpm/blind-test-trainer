@@ -4,6 +4,7 @@ import pygame
 import os
 import logging
 from src.data import song_library
+from src.utils.config_manager import config
 
 class LearningLabView(ttk.Frame):
     """
@@ -102,7 +103,8 @@ class LearningLabView(ttk.Frame):
 
             for song_id in due_song_ids:
                 song_data = song_library.get_song_by_id(song_id)
-                if song_data:
+                # Defensively check that the song data exists and has a filename
+                if song_data and song_data[4]:
                     song_record = {
                         "song_id": song_data[0],
                         "title": song_data[1],
@@ -132,15 +134,17 @@ class LearningLabView(ttk.Frame):
 
         self.current_song_index = song_index
         song = self.playlist[self.current_song_index]
-        # Ensure 'music' directory exists
-        music_dir = "music"
-        if not os.path.exists(music_dir):
-            logging.error(f"Music directory '{music_dir}' not found.")
-            self.song_title_label.config(text=f"Directory '{music_dir}' not found.")
-            self.artist_name_label.config(text="")
+
+        song_filename = song.get("local_filename")
+        # This check is now defensive, the main filtering is in load_playlist
+        if not song_filename:
+            logging.error(f"Song '{song.get('title')}' has invalid file path, skipping.")
+            self.play_next_song()
             return
 
-        song_path = os.path.join(music_dir, song["local_filename"])
+        # Load music directory from config
+        music_dir = config.get("Paths", "music_folder", fallback="music")
+        song_path = os.path.join(music_dir, song_filename)
 
         if not os.path.exists(song_path):
             logging.error(f"Song file not found: {song_path}")
