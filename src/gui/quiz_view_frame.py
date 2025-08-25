@@ -35,6 +35,7 @@ class QuizView(ttk.Frame):
         self.start_time = 0
         self.reaction_time = 0.0
         self.round_state = "idle"  # Can be 'idle', 'playing', 'answering'
+        self.current_snippet_duration = None
 
         # Initialize pygame mixer
         pygame.mixer.init()
@@ -170,12 +171,18 @@ class QuizView(ttk.Frame):
         # Navigate back to the main menu
         self.controller.show_frame("MainMenuFrame")
 
-    def start_new_quiz(self, mode: str):
+    def start_new_quiz(self, mode: str, snippet_duration_ms: int = None):
         """
         Starts a new quiz session based on the selected mode.
+
+        Args:
+            mode (str): The quiz mode ('Standard', 'Challenge', 'Gauntlet').
+            snippet_duration_ms (int, optional): The snippet duration in ms.
+                                                 If None, a default is used.
         """
         self.session = None  # Reset session
         song_ids_for_quiz = []
+        self.current_snippet_duration = snippet_duration_ms
 
         if mode == "Standard":
             song_ids_for_quiz = song_library.get_due_songs()
@@ -206,6 +213,19 @@ class QuizView(ttk.Frame):
 
             num_to_select = min(song_count_config, total_songs)
             song_ids_for_quiz = random.sample(all_song_ids, num_to_select)
+
+        elif mode == "Gauntlet":
+            song_ids_for_quiz = song_library.get_problem_songs(limit=10)
+            if not song_ids_for_quiz:
+                messagebox.showinfo(
+                    "No Problem Songs",
+                    "No songs are currently marked as 'problem songs'. "
+                    "Keep playing to identify them!"
+                )
+                return
+            # Set the snippet duration for Gauntlet mode specifically
+            self.current_snippet_duration = 30000
+
 
         self.session = QuizSession(song_ids=song_ids_for_quiz, mode=mode)
         self.prepare_next_question()
@@ -297,7 +317,15 @@ class QuizView(ttk.Frame):
             messagebox.showerror("Error", "Song is too short to play.")
             return
 
-        snippet_length = random.randint(10000, 15000)
+        # Use the specified snippet duration if available, otherwise use the default
+        if self.current_snippet_duration and len(song_audio) >= self.current_snippet_duration:
+            snippet_length = self.current_snippet_duration
+        else:
+            # Fallback for standard modes or if the song is too short
+            # for the gauntlet duration
+            snippet_length = random.randint(10000, 15000)
+
+
         max_start = len(song_audio) - snippet_length
         start_time_ms = random.randint(0, max_start)
         snippet = song_audio[start_time_ms:start_time_ms + snippet_length]

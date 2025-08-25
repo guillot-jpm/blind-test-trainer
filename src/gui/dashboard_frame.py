@@ -250,6 +250,27 @@ class DashboardFrame(ttk.Frame):
 
         tree.pack(expand=True, fill='both', padx=5, pady=5)
 
+        # 6. Add "Start Gauntlet" button
+        start_gauntlet_button = ttk.Button(
+            self.problem_songs_frame,
+            text="Start Gauntlet",
+            command=self.start_gauntlet_session,
+            style="TButton"
+        )
+        start_gauntlet_button.pack(pady=(10, 5))
+
+
+    def start_gauntlet_session(self):
+        """
+        Starts a new gauntlet quiz session from the dashboard.
+        """
+        quiz_view = self.controller.frames["QuizView"]
+        # The logic in start_new_quiz handles song fetching and messaging
+        quiz_view.start_new_quiz(mode="Gauntlet")
+
+        if quiz_view.session:
+            self.controller.show_frame("QuizView")
+
     def refresh_charts(self):
         """
         Public method to refresh all charts in the dashboard.
