@@ -96,18 +96,6 @@ def get_song_by_id(song_id):
     column_names = [description[0] for description in cursor.description]
     return dict(zip(column_names, row))
 
-def get_all_songs():
-    """
-    Retrieves a list of all songs from the library.
-
-    Returns:
-        list: A list of tuples, where each tuple represents a song record.
-    """
-    cursor = get_cursor()
-    cursor.execute("SELECT * FROM songs")
-    return cursor.fetchall()
-
-
 def get_all_song_ids():
     """
     Retrieves a list of all song_ids from the library.
@@ -154,7 +142,7 @@ def update_srs_data(song_id, new_interval, new_ease_factor, next_review_date):
         """, (new_interval, new_ease_factor, next_review_date, song_id))
         cursor.connection.commit()
     except sqlite3.Error as e:
-        print(f"Failed to update SRS data: {e}")
+        logging.error(f"Failed to update SRS data for song {song_id}: {e}")
         cursor.connection.rollback()
         raise
 
@@ -224,7 +212,7 @@ def delete_songs_by_id(song_ids):
 
         cursor.connection.commit()
     except sqlite3.Error as e:
-        print(f"Failed to delete songs: {e}")
+        logging.error(f"Failed to delete songs with IDs {song_ids}: {e}")
         cursor.connection.rollback()
         raise
 
@@ -251,7 +239,7 @@ def update_song_details(song_id, title, artist, release_year, spotify_id):
         """, (title, artist, release_year, spotify_id, song_id))
         cursor.connection.commit()
     except sqlite3.Error as e:
-        print(f"Failed to update song details: {e}")
+        logging.error(f"Failed to update details for song {song_id}: {e}")
         cursor.connection.rollback()
         raise
 
