@@ -351,29 +351,3 @@ def get_album_art_for_song(song_id):
     # 5. If not found on Spotify, return None.
     logging.warning(f"Album art for song {song_id} (Spotify ID: {spotify_id}) not found on Spotify.")
     return None
-
-
-def get_problem_songs(limit=10):
-    """
-    Retrieves a list of songs the user struggles with the most.
-
-    This is determined by counting the number of incorrect answers
-    in the play history.
-
-    Args:
-        limit (int): The maximum number of problem songs to return.
-
-    Returns:
-        list: A list of song_id integers for the most problematic songs.
-    """
-    cursor = get_cursor()
-    cursor.execute("""
-        SELECT
-            song_id
-        FROM play_history
-        WHERE was_correct = 0
-        GROUP BY song_id
-        ORDER BY COUNT(history_id) DESC
-        LIMIT ?
-    """, (limit,))
-    return [item[0] for item in cursor.fetchall()]

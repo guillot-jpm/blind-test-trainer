@@ -97,11 +97,11 @@ class LearningLabView(ttk.Frame):
         self.playlist.clear()
         try:
             # As per user feedback, use get_problem_songs(limit=10)
-            problem_songs = database_manager.get_problem_songs(limit=10)
+            problem_songs = database_manager.get_problem_songs(limit=10, min_attempts=3)
             if not problem_songs:
-                logging.warning("No problem songs found to create a playlist.")
+                logging.warning("No problem songs found with at least 3 attempts.")
                 self.song_title_label.config(text="No problem songs found")
-                self.artist_name_label.config(text="")
+                self.artist_name_label.config(text="Play more songs to generate a list.")
                 return
 
             for problem_song in problem_songs:

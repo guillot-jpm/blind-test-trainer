@@ -215,14 +215,18 @@ class QuizView(ttk.Frame):
             song_ids_for_quiz = random.sample(all_song_ids, num_to_select)
 
         elif mode == "Gauntlet":
-            song_ids_for_quiz = song_library.get_problem_songs(limit=10)
-            if not song_ids_for_quiz:
+            problem_songs = database_manager.get_problem_songs(limit=10, min_attempts=3)
+            if not problem_songs:
                 messagebox.showinfo(
                     "No Problem Songs",
-                    "No songs are currently marked as 'problem songs'. "
+                    "No songs with at least 3 attempts are considered 'problem songs'. "
                     "Keep playing to identify them!"
                 )
                 return
+
+            # The function now returns dicts, so we extract the IDs.
+            song_ids_for_quiz = [song['song_id'] for song in problem_songs]
+
             # Set the snippet duration for Gauntlet mode specifically
             self.current_snippet_duration = 30000
 
