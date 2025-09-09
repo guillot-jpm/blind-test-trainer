@@ -270,18 +270,20 @@ def get_practice_history(days=30):
         return {}
 
 
-def get_problem_songs(limit=5):
+def get_problem_songs(limit: int, min_attempts: int = 3):
     """
     Identifies songs with the lowest success rates in play history.
 
     Args:
         limit (int): The maximum number of problem songs to return.
+        min_attempts (int): The minimum number of plays a song must have
+                            to be considered.
 
     Returns:
         list: An ordered list of dictionaries, where each dictionary
               contains 'song_id', 'title', 'artist', 'success_rate',
               and 'attempts'. Returns an empty list on error or if
-              there's no play history.
+              there's no qualifying play history.
     """
     problem_songs = []
     try:
@@ -297,9 +299,10 @@ def get_problem_songs(limit=5):
             FROM play_history ph
             JOIN songs s ON ph.song_id = s.song_id
             GROUP BY s.song_id
+            HAVING COUNT(ph.history_id) >= ?
             ORDER BY success_rate ASC, attempts DESC
             LIMIT ?
-        """, (limit,))
+        """, (min_attempts, limit))
 
         rows = cursor.fetchall()
         # Get column names from the cursor description for easy dict conversion

@@ -199,13 +199,13 @@ class DashboardFrame(ttk.Frame):
             widget.destroy()
 
         # 2. Get data
-        problem_songs = get_problem_songs(limit=5)
+        problem_songs = get_problem_songs(limit=5, min_attempts=3)
 
         # 3. Handle case with no data
         if not problem_songs:
             no_data_label = ttk.Label(
                 self.problem_songs_frame,
-                text="Play some songs to see your stats!",
+                text="No songs with at least 3 attempts are available to be ranked.",
                 style="Muted.TLabel",
                 anchor="center"
             )
