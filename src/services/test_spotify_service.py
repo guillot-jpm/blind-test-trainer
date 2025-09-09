@@ -62,20 +62,65 @@ class TestSpotifyService(unittest.TestCase):
         self.assertIsNone(spotify_service.spotify)
 
     @patch('src.services.spotify_service.spotify')
-    def test_search_by_title_success(self, mock_spotify_client):
-        """Tests finding a song by title, selecting the most popular one."""
+    def test_search_by_title_selects_earliest(self, mock_spotify_client):
+        """
+        Tests that search_by_title selects the track with the earliest release date.
+        """
         spotify_service.spotify = mock_spotify_client
         mock_spotify_client.search.return_value = {
             'tracks': {
                 'items': [
-                    {'name': 'Test Song', 'popularity': 50, 'id': 'less-popular', 'artists': [{'name': 'Artist A'}], 'album': {'release_date': '2020'}},
-                    {'name': 'Test Song', 'popularity': 80, 'id': 'more-popular', 'artists': [{'name': 'Artist B'}], 'album': {'release_date': '2021'}},
+                    {'name': 'Test Song', 'id': 'newer-song', 'artists': [{'name': 'Artist B'}], 'album': {'release_date': '2021-01-01'}},
+                    {'name': 'Test Song', 'id': 'older-song', 'artists': [{'name': 'Artist A'}], 'album': {'release_date': '2020-12-31'}},
                 ]
             }
         }
         result = spotify_service.search_by_title("Test Song")
         self.assertIsNotNone(result)
-        self.assertEqual(result['spotify_id'], 'more-popular')
+        self.assertEqual(result['spotify_id'], 'older-song')
+
+    @patch('src.services.spotify_service.spotify')
+    def test_search_by_title_and_artist_selects_earliest(self, mock_spotify_client):
+        """
+        Tests that search_by_title_and_artist selects the earliest release.
+        """
+        spotify_service.spotify = mock_spotify_client
+        mock_spotify_client.search.return_value = {
+            'tracks': {
+                'items': [
+                    # The newer, more popular version
+                    {
+                        'id': 'new-version-id',
+                        'name': 'Partenaire Particulier',
+                        'artists': [{'name': 'Partenaire Particulier'}],
+                        'album': {'release_date': '2009-05-18'},
+                        'popularity': 70
+                    },
+                    # The original, older version
+                    {
+                        'id': 'original-version-id',
+                        'name': 'Partenaire Particulier',
+                        'artists': [{'name': 'Partenaire Particulier'}],
+                        'album': {'release_date': '1985-11'},
+                        'popularity': 50
+                    },
+                    # Another version, to make it interesting
+                    {
+                        'id': 'remix-version-id',
+                        'name': 'Partenaire Particulier (Remix)',
+                        'artists': [{'name': 'Partenaire Particulier'}],
+                        'album': {'release_date': '2011'},
+                        'popularity': 60
+                    }
+                ]
+            }
+        }
+        result = spotify_service.search_by_title_and_artist(
+            "Partenaire Particulier", "Partenaire Particulier"
+        )
+        self.assertIsNotNone(result)
+        self.assertEqual(result['spotify_id'], 'original-version-id')
+        self.assertEqual(result['release_year'], '1985')
 
     @patch('src.services.spotify_service.spotify')
     def test_search_by_title_and_artist_success(self, mock_spotify_client):
