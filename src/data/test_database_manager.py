@@ -94,18 +94,73 @@ class TestDashboardQueries(unittest.TestCase):
         self.assertEqual(history[two_days_ago_key]['correct'], 1)
 
     def test_get_problem_songs(self):
-        """Test the identification of problem songs."""
-        problem_songs = database_manager.get_problem_songs(limit=2)
+        """
+        Test the identification of problem songs based on loss streak and success rate.
+        """
+        cursor = database_manager.get_cursor()
+        # Clear existing play history to isolate this test case
+        cursor.execute("DELETE FROM play_history")
 
-        self.assertEqual(len(problem_songs), 2)
-        # Song 5 has 0% success rate (1 fail / 1 total) - but wait, check history data
-        # Let's recount: Song 5 has 2 fails. Song 3 has 2 fails, 1 success.
-        # Song 5 rate: 0/2=0%. Song 3 rate: 1/3=33.3%.
-        # So song 5 should be first, song 3 second.
-        self.assertEqual(problem_songs[0]['song_id'], 5)
-        self.assertAlmostEqual(problem_songs[0]['success_rate'], 0.0)
+        # Timestamps to enforce order (W=Correct, L=Wrong)
+        # Song A (ID 1): W, L, L, L -> Loss Streak: 3, Success Rate: 25%
+        # Song B (ID 2): L, L, L, W -> Loss Streak: 0, Success Rate: 25%
+        # Song C (ID 3): L, L       -> Loss Streak: 2, Success Rate: 0%
+        # Song D (ID 4): W, L, L    -> Loss Streak: 2, Success Rate: 33%
+        history_data = [
+            # Song A
+            (1, '2023-01-01 10:00:00', True, 1.0),   # W
+            (1, '2023-01-01 11:00:00', False, 1.0),  # L
+            (1, '2023-01-01 12:00:00', False, 1.0),  # L
+            (1, '2023-01-01 13:00:00', False, 1.0),  # L
+            # Song B
+            (2, '2023-01-01 10:00:00', False, 1.0),  # L
+            (2, '2023-01-01 11:00:00', False, 1.0),  # L
+            (2, '2023-01-01 12:00:00', False, 1.0),  # L
+            (2, '2023-01-01 13:00:00', True, 1.0),   # W
+            # Song C
+            (3, '2023-01-01 10:00:00', False, 1.0),  # L
+            (3, '2023-01-01 11:00:00', False, 1.0),  # L
+            # Song D
+            (4, '2023-01-01 10:00:00', True, 1.0),   # W
+            (4, '2023-01-01 11:00:00', False, 1.0),  # L
+            (4, '2023-01-01 12:00:00', False, 1.0),  # L
+        ]
+        cursor.executemany("""
+            INSERT INTO play_history (song_id, play_timestamp, was_correct, reaction_time_seconds)
+            VALUES (?, ?, ?, ?)
+        """, history_data)
+        cursor.connection.commit()
+
+        # We need at least 2 attempts for C, 3 for D, and 4 for A & B
+        problem_songs = database_manager.get_problem_songs(limit=4, min_attempts=2)
+
+        self.assertEqual(len(problem_songs), 4)
+
+        # Expected order: A, C, D, B
+        # 1. Song A: loss_streak=3, success_rate=0.25
+        # 2. Song C: loss_streak=2, success_rate=0.0
+        # 3. Song D: loss_streak=2, success_rate=0.333
+        # 4. Song B: loss_streak=0, success_rate=0.25
+
+        # Check Song A
+        self.assertEqual(problem_songs[0]['song_id'], 1)
+        self.assertEqual(problem_songs[0]['loss_streak'], 3)
+        self.assertAlmostEqual(problem_songs[0]['success_rate'], 0.25)
+
+        # Check Song C
         self.assertEqual(problem_songs[1]['song_id'], 3)
-        self.assertAlmostEqual(problem_songs[1]['success_rate'], 0.25)
+        self.assertEqual(problem_songs[1]['loss_streak'], 2)
+        self.assertAlmostEqual(problem_songs[1]['success_rate'], 0.0)
+
+        # Check Song D
+        self.assertEqual(problem_songs[2]['song_id'], 4)
+        self.assertEqual(problem_songs[2]['loss_streak'], 2)
+        self.assertAlmostEqual(problem_songs[2]['success_rate'], 1.0 / 3.0)
+
+        # Check Song B
+        self.assertEqual(problem_songs[3]['song_id'], 2)
+        self.assertEqual(problem_songs[3]['loss_streak'], 0)
+        self.assertAlmostEqual(problem_songs[3]['success_rate'], 0.25)
 
     def test_get_mastery_over_time(self):
         """Test the simulation of mastery over time."""
