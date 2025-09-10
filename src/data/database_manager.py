@@ -272,7 +272,11 @@ def get_practice_history(days=30):
 
 def get_problem_songs(limit: int, min_attempts: int = 3):
     """
-    Identifies songs with the lowest success rates in play history.
+    Identifies "problem songs" based on recent loss streaks and overall success rate.
+
+    A "loss streak" is the number of consecutive incorrect answers since the
+    most recent correct answer. If a song has never been answered correctly,
+    the streak is its total number of plays.
 
     Args:
         limit (int): The maximum number of problem songs to return.
@@ -280,29 +284,68 @@ def get_problem_songs(limit: int, min_attempts: int = 3):
                             to be considered.
 
     Returns:
-        list: An ordered list of dictionaries, where each dictionary
-              contains 'song_id', 'title', 'artist', 'success_rate',
-              and 'attempts'. Returns an empty list on error or if
-              there's no qualifying play history.
+        list: An ordered list of dictionaries, where each dictionary contains
+              'song_id', 'title', 'artist', 'loss_streak', 'success_rate',
+              and 'attempts'. The list is sorted primarily by the highest
+              loss_streak, and secondarily by the lowest success_rate.
+              Returns an empty list on error.
     """
     problem_songs = []
     try:
         cursor = get_cursor()
-        # Multiplying by 1.0 to ensure floating point division for the rate.
-        cursor.execute("""
+        # This query uses a Common Table Expression (CTE) with a window function
+        # to calculate the loss streak for each song.
+        query = """
+            WITH SongLossStreaks AS (
+                -- Part 1: Using a window function for songs with at least one correct answer
+                WITH RankedPlays AS (
+                    SELECT
+                        song_id,
+                        was_correct,
+                        ROW_NUMBER() OVER(PARTITION BY song_id ORDER BY play_timestamp DESC) as rn
+                    FROM play_history
+                )
+                SELECT
+                    song_id,
+                    MIN(rn) - 1 as loss_streak
+                FROM RankedPlays
+                WHERE was_correct = 1
+                GROUP BY song_id
+
+                UNION ALL
+
+                -- Part 2: Handling songs that have never been answered correctly
+                SELECT
+                    song_id,
+                    COUNT(*) as loss_streak
+                FROM play_history
+                GROUP BY song_id
+                HAVING SUM(was_correct) = 0
+            )
             SELECT
                 s.song_id,
                 s.title,
                 s.artist,
+                sls.loss_streak,
                 SUM(ph.was_correct) * 1.0 / COUNT(ph.history_id) as success_rate,
                 COUNT(ph.history_id) as attempts
-            FROM play_history ph
-            JOIN songs s ON ph.song_id = s.song_id
-            GROUP BY s.song_id
-            HAVING COUNT(ph.history_id) >= ?
-            ORDER BY success_rate ASC, attempts DESC
+            FROM
+                play_history ph
+            JOIN
+                songs s ON ph.song_id = s.song_id
+            JOIN
+                SongLossStreaks sls ON ph.song_id = sls.song_id
+            GROUP BY
+                s.song_id, s.title, s.artist, sls.loss_streak
+            HAVING
+                COUNT(ph.history_id) >= ?
+            ORDER BY
+                sls.loss_streak DESC,
+                success_rate ASC
             LIMIT ?
-        """, (min_attempts, limit))
+        """
+
+        cursor.execute(query, (min_attempts, limit))
 
         rows = cursor.fetchall()
         # Get column names from the cursor description for easy dict conversion
