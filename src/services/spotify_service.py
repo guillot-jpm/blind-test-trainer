@@ -65,9 +65,9 @@ def search_by_title(title):
         if not result['tracks']['items']:
             return None
 
-        # Find the best match by popularity
-        best_match_track = max(result['tracks']['items'], key=lambda t: t.get('popularity', 0))
-        return _format_track(best_match_track)
+        # Find the track with the earliest release date
+        best_match_track = _get_track_with_earliest_release(result['tracks']['items'])
+        return _format_track(best_match_track) if best_match_track else None
 
     except spotipy.exceptions.SpotifyException as e:
         logging.error(
@@ -91,19 +91,9 @@ def search_by_title_and_artist(title, artist):
         if not result['tracks']['items']:
             return None
 
-        query_str = f"{title.lower()} {artist.lower()}"
-        def get_track_artist_str(track):
-            return ', '.join(a['name'] for a in track['artists'])
-
-        # Find the best match using fuzzy string matching
-        best_match_track = max(
-            result['tracks']['items'],
-            key=lambda track: fuzz.ratio(
-                query_str,
-                f"{track['name'].lower()} {get_track_artist_str(track).lower()}"
-            )
-        )
-        return _format_track(best_match_track)
+        # Find the track with the earliest release date from the results
+        best_match_track = _get_track_with_earliest_release(result['tracks']['items'])
+        return _format_track(best_match_track) if best_match_track else None
 
     except spotipy.exceptions.SpotifyException as e:
         logging.error(
@@ -183,6 +173,33 @@ def fetch_album_art_data(spotify_id):
 
 
 # --- Private Helper Functions ---
+
+def _get_track_with_earliest_release(tracks):
+    """
+    Finds the track with the earliest release date from a list of tracks.
+    Handles 'YYYY', 'YYYY-MM-DD', and 'YYYY-MM' date formats.
+    """
+    if not tracks:
+        return None
+
+    earliest_track = None
+    # Initialize with a value that ensures the first valid track becomes the earliest
+    earliest_date_str = "9999-99-99"
+
+    for track in tracks:
+        release_date = track.get('album', {}).get('release_date')
+
+        # Skip tracks without a release date
+        if not release_date:
+            continue
+
+        # Direct string comparison works for YYYY, YYYY-MM, YYYY-MM-DD
+        if release_date < earliest_date_str:
+            earliest_date_str = release_date
+            earliest_track = track
+
+    return earliest_track
+
 
 def _format_track(track):
     """
